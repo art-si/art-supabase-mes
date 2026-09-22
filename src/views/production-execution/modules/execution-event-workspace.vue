@@ -1026,7 +1026,7 @@
             key: 'pmis-task',
             label: `PMIS ${tableTitle.value}任务`,
             icon: 'ri:external-link-line',
-            buttonProps: { link: true, type: 'primary' },
+            buttonProps: { link: true, type: 'primary' as const },
             onClick: () => openPmisPage('task')
           },
           {

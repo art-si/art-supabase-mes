@@ -1,0 +1,1 @@
+import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-B53NdkV7.js";import{t as r}from"./execution-analytics-D2vhEV9t.js";var i=e({name:`MesLaborEfficiency`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{mode:`person`}))}});export{i as default};

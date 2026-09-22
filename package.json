@@ -19,12 +19,13 @@
     "preview": "vite preview",
     "boundary:audit": "tsx scripts/audit-module-boundary.ts",
     "ui:audit": "tsx node_modules/art-supabase-pro/scripts/ui-audit.ts",
+    "test:unit": "tsx --test \"src/**/*.test.ts\" \"tests/unit/*.test.ts\"",
     "lint": "eslint \"src/**/*.{ts,vue}\" \"scripts/**/*.ts\" vite.config.ts",
     "typecheck": "vue-tsc --noEmit --pretty false",
-    "check": "pnpm boundary:audit && pnpm ui:audit && pnpm typecheck && pnpm lint"
+    "check": "pnpm boundary:audit && pnpm ui:audit && pnpm typecheck && pnpm lint && pnpm test:unit"
   },
   "dependencies": {
-    "art-supabase-pro": "https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz"
+    "art-supabase-pro": "https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz"
   },
   "peerDependencies": {
     "vue": "^3.5.38"

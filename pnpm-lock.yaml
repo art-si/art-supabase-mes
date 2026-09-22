@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       art-supabase-pro:
-        specifier: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz
-        version: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz(@floating-ui/dom@1.8.0)(@nuxt/kit@4.5.2(magic-string@1.2.2)(rolldown@1.2.5)(unplugin@2.3.11))(@tiptap/extension-list@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/extensions@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0)(@types/sortablejs@1.15.9)(@vue/compiler-sfc@3.5.40)(antlr4ng-cli@1.0.7)(core-js@3.50.0)(esbuild@0.28.2)(rolldown@1.2.5)(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(tsx@4.23.12)(yaml@2.9.0))
+        specifier: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz
+        version: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz(@floating-ui/dom@1.8.0)(@nuxt/kit@4.5.2(magic-string@1.2.2)(rolldown@1.2.5)(unplugin@2.3.11))(@tiptap/extension-list@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/extensions@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0)(@types/sortablejs@1.15.9)(@vue/compiler-sfc@3.5.40)(antlr4ng-cli@1.0.7)(core-js@3.50.0)(esbuild@0.28.2)(rolldown@1.2.5)(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(tsx@4.23.12)(yaml@2.9.0))
       vue:
         specifier: 3.5.40
         version: 3.5.40(typescript@6.0.3)
@@ -1794,8 +1794,8 @@ packages:
   array-flatten@3.0.0:
     resolution: {integrity: sha512-zPMVc3ZYlGLNk4mpK1NzP2wg0ml9t7fUgDsayR5Y5rSzxQilzR9FGu/EH2jQOcKSAeAfWeylyW8juy3OkWRvNA==}
 
-  art-supabase-pro@https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz:
-    resolution: {integrity: sha512-KlrWalqU1B4iNr1kt3/slgfmK+k9nDQJ8gVMbZ66hTIFwunx1oWLj9cE2J1Kczjc35VtGxlltNGDq9ms1Ea2IA==, tarball: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz}
+  art-supabase-pro@https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz:
+    resolution: {integrity: sha512-PCsJch5/rwLAoasBp/QE/PgpA6ukG7lBlfGNKg7ajyzXb4/WIjnSyeMWbg4tgXaa/DCXkqEUKLIanrgloyZfNw==, tarball: https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz}
     version: 1.0.0
     engines: {node: '>=22.0.0', pnpm: '>=11.9.0'}
 
@@ -5836,7 +5836,7 @@ snapshots:
 
   array-flatten@3.0.0: {}
 
-  art-supabase-pro@https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/cb23bb2bdf3bddabe6fd6c8a905d841e8014ef59.tar.gz(@floating-ui/dom@1.8.0)(@nuxt/kit@4.5.2(magic-string@1.2.2)(rolldown@1.2.5)(unplugin@2.3.11))(@tiptap/extension-list@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/extensions@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0)(@types/sortablejs@1.15.9)(@vue/compiler-sfc@3.5.40)(antlr4ng-cli@1.0.7)(core-js@3.50.0)(esbuild@0.28.2)(rolldown@1.2.5)(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(tsx@4.23.12)(yaml@2.9.0)):
+  art-supabase-pro@https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz(@floating-ui/dom@1.8.0)(@nuxt/kit@4.5.2(magic-string@1.2.2)(rolldown@1.2.5)(unplugin@2.3.11))(@tiptap/extension-list@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/extensions@3.31.0(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0)(@types/sortablejs@1.15.9)(@vue/compiler-sfc@3.5.40)(antlr4ng-cli@1.0.7)(core-js@3.50.0)(esbuild@0.28.2)(rolldown@1.2.5)(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(tsx@4.23.12)(yaml@2.9.0)):
     dependencies:
       '@element-plus/icons-vue': 2.3.2(vue@3.5.40(typescript@6.0.3))
       '@file-viewer/preset-all': 2.1.28(three@0.185.1)
