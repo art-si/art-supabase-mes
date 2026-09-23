@@ -790,6 +790,7 @@ export async function fetchMesBomComponentOptions(
     .eq('tenant_id', tenantId)
     .eq('material_id', materialId)
     .in('status', ['effective', 'review', 'changing', 'design'])
+    .or('project_id.is.null,status.eq.effective')
     .order('update_time', { ascending: false })
     .limit(1)
   if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
@@ -802,6 +803,45 @@ export async function fetchMesBomComponentOptions(
     showErrorMessage: false
   })
   return [...(data?.[0]?.items ?? [])].sort((a, b) => a.sequenceNo - b.sequenceNo)
+}
+
+export async function fetchMesConfirmedProjectBom(tenantId: string, projectId: string) {
+  const { data } = await responseHandle<
+    Array<{
+      id: string
+      materialId: string
+      material: { materialCode: string } | null
+    }>
+  >(
+    () =>
+      supabase
+        .from('mdm_bom')
+        .select('id,material_id,material:mdm_material!mdm_bom_material_fkey(material_code)')
+        .eq('tenant_id', tenantId)
+        .eq('project_id', projectId)
+        .eq('status', 'effective')
+        .order('update_time', { ascending: false })
+        .limit(1),
+    { ...readOptions, showErrorMessage: false }
+  )
+  return data?.[0] ?? null
+}
+
+export async function fetchMesProjectConstructionNo(tenantId: string, projectId: string) {
+  const { data } = await responseHandle<Array<{ details: { constructionNo?: string } }>>(
+    () =>
+      supabase
+        .from('scm_sales_document')
+        .select('details')
+        .eq('tenant_id', tenantId)
+        .eq('project_id', projectId)
+        .eq('kind', 'sales_contract')
+        .eq('status', 'effective')
+        .order('updated_at', { ascending: false })
+        .limit(1),
+    { ...readOptions, showErrorMessage: false }
+  )
+  return data?.[0]?.details?.constructionNo ?? null
 }
 
 export async function fetchMesMaterialOptions(

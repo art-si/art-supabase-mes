@@ -139,6 +139,8 @@
   } from './work-order-plan'
   import {
     fetchMesBomComponentOptions,
+    fetchMesConfirmedProjectBom,
+    fetchMesProjectConstructionNo,
     fetchMesMaterialCategories,
     fetchMesMaterialOptions,
     fetchMesMaterialDetailsById,
@@ -343,7 +345,12 @@
       label: '项目',
       type: 'select',
       options: option(references.value.projects),
-      props: { disabled: locked.value, clearable: true, filterable: true }
+      props: {
+        disabled: locked.value,
+        clearable: true,
+        filterable: true,
+        onChange: handleProjectChange
+      }
     },
     { key: 'constructionNo', label: '施工编号', props: { disabled: locked.value } },
     { key: 'plan', label: '产品与计划', type: 'divider', span: 24 },
@@ -553,6 +560,34 @@
   function handleMaterialChange(_value: unknown, rows: DataSelectRecord[]): void {
     applyMaterial(rows[0] as MesMaterialOption | undefined)
     void populateExtensionFromBom()
+  }
+  async function handleProjectChange(value: unknown): Promise<void> {
+    const projectId = typeof value === 'string' ? value : ''
+    if (!projectId || !model.tenantId || currentId.value) return
+    const tenantId = model.tenantId
+    try {
+      const [bom, constructionNo] = await Promise.all([
+        fetchMesConfirmedProjectBom(tenantId, projectId),
+        fetchMesProjectConstructionNo(tenantId, projectId)
+      ])
+      if (model.projectId !== projectId || model.tenantId !== tenantId) return
+      if (constructionNo) model.constructionNo = constructionNo
+      if (!bom?.material?.materialCode) return
+      const materials = await fetchMesMaterialOptions({
+        tenantId,
+        keyword: bom.material.materialCode,
+        current: 1,
+        size: 20
+      })
+      if (model.projectId !== projectId || model.tenantId !== tenantId) return
+      const material = materials.data.find((item) => item.id === bom.materialId)
+      if (material) {
+        applyMaterial(material)
+        void populateExtensionFromBom()
+      }
+    } catch {
+      ElMessage.warning('项目交付物或施工号带入失败，请手动选择')
+    }
   }
   function applyMaterialDimensions(material?: MesMaterialOption, overwrite = true): void {
     for (const [key, value] of [
