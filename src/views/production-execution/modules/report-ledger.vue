@@ -82,11 +82,16 @@
                 >
                 <ElTableColumn label="生产工单 / 任务单" min-width="230"
                   ><template #default="{ row }"
-                    ><BusinessTableIdentityCell
-                      :primary="row.task?.workOrder?.workOrderNo"
-                      :secondary="row.task?.taskNo"
-                      icon="ri:file-list-3-line"
-                    /> </template
+                    ><button
+                      type="button"
+                      class="art-table__cell-link"
+                      @click.stop="openDetail(row)"
+                    >
+                      <BusinessTableIdentityCell
+                        :primary="row.task?.workOrder?.workOrderNo"
+                        :secondary="row.task?.taskNo"
+                        icon="ri:file-list-3-line"
+                      /> </button></template
                 ></ElTableColumn>
                 <ElTableColumn label="工序 / 产品" min-width="210" show-overflow-tooltip
                   ><template #default="{ row }"

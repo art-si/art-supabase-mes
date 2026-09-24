@@ -157,12 +157,17 @@
                   }}</template></ElTableColumn
                 ><ElTableColumn label="工单 / 任务单" min-width="220"
                   ><template #default="{ row }"
-                    ><BusinessTableIdentityCell
-                      :primary="row.report.task?.workOrder?.workOrderNo"
-                      :secondary="row.report.task?.taskNo"
-                      icon="ri:file-warning-line"
-                      icon-tone="danger"
-                    /> </template></ElTableColumn
+                    ><button
+                      type="button"
+                      class="art-table__cell-link"
+                      @click.stop="openDetail(row)"
+                    >
+                      <BusinessTableIdentityCell
+                        :primary="row.report.task?.workOrder?.workOrderNo"
+                        :secondary="row.report.task?.taskNo"
+                        icon="ri:file-warning-line"
+                        icon-tone="danger"
+                      /> </button></template></ElTableColumn
                 ><ElTableColumn label="工序 / 产品" min-width="200"
                   ><template #default="{ row }"
                     ><BusinessTableIdentityCell

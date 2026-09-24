@@ -862,6 +862,7 @@
       label: '工单编号',
       minWidth: 156,
       fixed: 'left',
+      link: { permission: 'MesWorkOrder:View', onClick: (row) => openWorkOrder(row, true) },
       showOverflowTooltip: true
     },
     {
@@ -1022,6 +1023,7 @@
       label: '任务单号',
       minWidth: 164,
       fixed: 'left',
+      link: { permission: 'MesOperationTask:View', onClick: openTaskDetail },
       sortable: 'custom',
       showOverflowTooltip: true
     },

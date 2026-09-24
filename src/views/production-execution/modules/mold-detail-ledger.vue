@@ -73,11 +73,16 @@
                   width="62"
                   :index="rowIndex" /><ElTableColumn label="生产工单 / 任务单" min-width="220"
                   ><template #default="{ row }"
-                    ><BusinessTableIdentityCell
-                      :primary="row.task?.workOrder?.workOrderNo"
-                      :secondary="row.task?.taskNo"
-                      icon="ri:tools-line"
-                    /> </template></ElTableColumn
+                    ><button
+                      type="button"
+                      class="art-table__cell-link"
+                      @click.stop="openDetail(row)"
+                    >
+                      <BusinessTableIdentityCell
+                        :primary="row.task?.workOrder?.workOrderNo"
+                        :secondary="row.task?.taskNo"
+                        icon="ri:tools-line"
+                      /> </button></template></ElTableColumn
                 ><ElTableColumn label="序列 / 类型" min-width="116"
                   ><template #default="{ row }"
                     >{{ row.task?.sequenceNo ?? '—' }} /
