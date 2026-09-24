@@ -63,6 +63,14 @@
             :disabled="locked"
             @change="handleMaterialChange"
           />
+          <ElAlert
+            v-if="selectedMaterial?.materialType === 'FERT' && !model.inboundWarehouseName"
+            class="mt-3"
+            title="暂无可用成品仓；请先启用成品仓并设置业务应用范围。"
+            type="warning"
+            show-icon
+            :closable="false"
+          />
         </template>
         <template #urgency>
           <WorkOrderUrgencySegmented v-model="model.urgency" :disabled="locked" />
@@ -366,7 +374,16 @@
     { key: 'productionUnitName', label: '生产单位', type: 'text', span: 8 },
     { key: 'plannerName', label: '计划员', type: 'text', span: 8 },
     { key: 'dispatcherName', label: '调度员', type: 'text', span: 8 },
-    { key: 'inboundWarehouseName', label: '入库仓库', type: 'text', span: 8 },
+    {
+      key: 'inboundWarehouseName',
+      label: '入库仓库',
+      type: 'text',
+      span: 8,
+      help:
+        selectedMaterial.value?.materialType === 'FERT' && model.inboundWarehouseName
+          ? '成品入库按物料当前配置的成品仓办理。'
+          : undefined
+    },
     {
       key: 'orderQuantity',
       label: '工单数量',
