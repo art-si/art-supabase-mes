@@ -371,13 +371,6 @@
       data.target === 'item' ? (data.mode === 'bom' ? createBomItem() : createRouteStep()) : {},
       cloneDeep(initial)
     )
-    if (data.mode === 'bom') {
-      await Promise.all(
-        ['mdmMaterialIssueMethod', 'mdmMaterialBackflushMethod', 'mdmMaterialOverIssueControl'].map(
-          (code) => userStore.ensureDictLoaded(code)
-        )
-      )
-    }
     if (data.target === 'item' && data.mode === 'route') {
       for (const key of jsonKeys)
         model[`${key}Json`] = JSON.stringify(model[key] ?? jsonDefaults[key], null, 2)
@@ -390,7 +383,23 @@
       subtitle: data.row.workOrderNo,
       confirmText: '保存到工单',
       contentMaxHeight: '70vh',
-      onOpen: () => formRef.value?.clearValidate(),
+      loading: data.mode === 'bom',
+      loadingText: '正在加载物料控制选项…',
+      onOpen: async (_openData, api) => {
+        formRef.value?.clearValidate()
+        if (data.mode !== 'bom') return
+        try {
+          await Promise.all(
+            [
+              'mdmMaterialIssueMethod',
+              'mdmMaterialBackflushMethod',
+              'mdmMaterialOverIssueControl'
+            ].map((code) => userStore.ensureDictLoaded(code))
+          )
+        } finally {
+          api.setLoading(false)
+        }
+      },
       onConfirm: async () => {
         try {
           await formRef.value?.validate()

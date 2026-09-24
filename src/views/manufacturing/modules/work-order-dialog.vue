@@ -148,7 +148,7 @@
   import {
     fetchMesBomComponentOptions,
     fetchMesConfirmedProjectBom,
-    fetchMesProjectConstructionNo,
+    fetchMesProjectSections,
     fetchMesMaterialCategories,
     fetchMesMaterialOptions,
     fetchMesMaterialDetailsById,
@@ -195,6 +195,9 @@
     workCenters: []
   })
   const tenantOptions = ref<Array<{ label: string; value: string }>>([])
+  const projectSections = ref<
+    Array<{ constructionNo: string; sectionName: string; status: 'active' | 'closed' }>
+  >([])
   const userStore = useUserStore()
   const { getDictMap } = storeToRefs(userStore)
   const readonly = ref(false)
@@ -253,6 +256,11 @@
   const option = (items: Array<{ id: string; code: string; name: string }>) =>
     items.map((item) => ({ label: `${item.name} · ${item.code}`, value: item.id }))
   const locked = computed(() => readonly.value)
+  const projectRequired = computed(
+    () =>
+      references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
+        ?.projectRequired ?? false
+  )
   const activeExtensionFields = computed<WorkOrderExtensionField[]>(
     () =>
       references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
@@ -350,7 +358,7 @@
     },
     {
       key: 'projectId',
-      label: '项目',
+      label: projectRequired.value ? '项目 *' : '项目',
       type: 'select',
       options: option(references.value.projects),
       props: {
@@ -358,9 +366,26 @@
         clearable: true,
         filterable: true,
         onChange: handleProjectChange
-      }
+      },
+      help: projectRequired.value ? '工程项目工单必须指定项目及施工号。' : '非项目工单可留空。'
     },
-    { key: 'constructionNo', label: '施工编号', props: { disabled: locked.value } },
+    {
+      key: 'constructionNo',
+      label: projectRequired.value ? '施工号 *' : '施工号',
+      type: 'select',
+      options: projectSections.value.map((section) => ({
+        label: `${section.constructionNo} · ${section.sectionName}`,
+        value: section.constructionNo,
+        disabled: section.status !== 'active'
+      })),
+      props: {
+        disabled: locked.value || !model.projectId,
+        clearable: true,
+        filterable: true,
+        placeholder: model.projectId ? '选择项目施工号' : '请先选择项目'
+      },
+      help: model.projectId ? '仅可选择当前项目已启用的施工号。' : '普通非项目工单无需施工号。'
+    },
     { key: 'plan', label: '产品与计划', type: 'divider', span: 24 },
     {
       key: 'materialId',
@@ -509,6 +534,9 @@
   }
   async function handleTenantChange(): Promise<void> {
     applyMaterial()
+    model.projectId = null
+    model.constructionNo = null
+    projectSections.value = []
     await loadReferences()
   }
   async function fetchMaterialOptions(params: DataSelectFetchParams) {
@@ -580,15 +608,19 @@
   }
   async function handleProjectChange(value: unknown): Promise<void> {
     const projectId = typeof value === 'string' ? value : ''
-    if (!projectId || !model.tenantId || currentId.value) return
+    model.constructionNo = null
+    projectSections.value = []
+    if (!projectId || !model.tenantId) return
     const tenantId = model.tenantId
     try {
-      const [bom, constructionNo] = await Promise.all([
+      const [bom, sections] = await Promise.all([
         fetchMesConfirmedProjectBom(tenantId, projectId),
-        fetchMesProjectConstructionNo(tenantId, projectId)
+        fetchMesProjectSections(tenantId, projectId)
       ])
       if (model.projectId !== projectId || model.tenantId !== tenantId) return
-      if (constructionNo) model.constructionNo = constructionNo
+      projectSections.value = sections
+      const activeSections = sections.filter((section) => section.status === 'active')
+      if (activeSections.length === 1) model.constructionNo = activeSections[0].constructionNo
       if (!bom?.material?.materialCode) return
       const materials = await fetchMesMaterialOptions({
         tenantId,
@@ -603,7 +635,7 @@
         void populateExtensionFromBom()
       }
     } catch {
-      ElMessage.warning('项目交付物或施工号带入失败，请手动选择')
+      ElMessage.warning('项目交付物或施工号加载失败，请重试')
     }
   }
   function applyMaterialDimensions(material?: MesMaterialOption, overwrite = true): void {
@@ -698,6 +730,7 @@
   }
   const handleOpen = async (data: WorkOrderDialogOpenData) => {
     bomOptionsRequestId++
+    projectSections.value = []
     detailRows.value.splice(
       0,
       detailRows.value.length,
@@ -794,15 +827,6 @@
           }
     )
     if (selectedMaterial.value) applyMaterial(selectedMaterial.value, false, false)
-    await Promise.all(
-      [
-        'mesWorkOrderSource',
-        'mesWorkOrderUrgency',
-        'mesWorkOrderStatus',
-        'mdmMaterialSource',
-        'mdmMaterialSpecialPurchaseType'
-      ].map((code) => userStore.ensureDictLoaded(code))
-    )
     await dialogRef.value?.handleOpen(data, {
       title: heading.value,
       subtitle: data.row?.workOrderNo || '计划工单',
@@ -812,7 +836,19 @@
       loading: true,
       onOpen: async (_data, api) => {
         try {
+          await Promise.all(
+            [
+              'mesWorkOrderSource',
+              'mesWorkOrderUrgency',
+              'mesWorkOrderStatus',
+              'mdmMaterialSource',
+              'mdmMaterialSpecialPurchaseType'
+            ].map((code) => userStore.ensureDictLoaded(code))
+          )
           await loadReferences()
+          if (model.projectId && model.tenantId) {
+            projectSections.value = await fetchMesProjectSections(model.tenantId, model.projectId)
+          }
           if (selectedMaterial.value) {
             const details = await fetchMesMaterialDetailsById(model.tenantId, model.materialId)
             if (details && selectedMaterial.value?.id === model.materialId) {
@@ -828,6 +864,14 @@
       onConfirm: async () => {
         try {
           await formRef.value?.validate()
+          if (projectRequired.value && (!model.projectId || !model.constructionNo)) {
+            ElMessage.warning('工程项目工单必须选择项目和施工号')
+            return false
+          }
+          if (model.projectId && !model.constructionNo) {
+            ElMessage.warning('项目工单必须选择施工号')
+            return false
+          }
           if (!detailsRef.value?.validate()) return false
           const payload = buildPayload()
           await saveWorkOrder(payload, currentId.value || undefined)

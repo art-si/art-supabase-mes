@@ -93,6 +93,7 @@
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
   import ArtDictDisplay from '@/components/core/base/art-dict-display/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
+  import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import { useUserStore } from '@/store/modules/user'
   import { formatNumberValue } from '@/utils/ui'
   import type { ColumnOption } from '@/types'
@@ -426,7 +427,12 @@
       prop: 'controlCodeName',
       label: '工序控制码',
       minWidth: 150,
-      formatter: (row) => [row.controlCode, row.controlCodeName].filter(Boolean).join(' · ') || '—'
+      formatter: (row) =>
+        row.controlCode || row.controlCodeName ? (
+          <BusinessTableIdentityCell primary={row.controlCodeName} secondary={row.controlCode} />
+        ) : (
+          '—'
+        )
     },
     {
       prop: 'operationMode',
@@ -604,39 +610,53 @@
     record.value = data.row
     mode.value = data.mode
     canEdit.value = data.canEdit
-    const [snapshotReferences, componentTypes] = await Promise.all([
-      data.canEdit
-        ? fetchWorkOrderSnapshotReferences(data.row.tenantId)
-        : Promise.resolve({
-            componentTypes: [],
-            materials: [],
-            units: [],
-            warehouses: [],
-            departments: [],
-            workCenters: []
-          }),
-      data.mode === 'bom' ? fetchWorkOrderComponentTypes(data.row.tenantId) : Promise.resolve([])
-    ])
-    references.value = { ...snapshotReferences, componentTypes }
-    const dictionaryCodes =
-      data.mode === 'route'
-        ? [
-            'mdmProcessRouteSequenceType',
-            'mdmProcessOperationMode',
-            'mdmProcessingMode',
-            'mdmReportMode',
-            'mdmInspectionMode',
-            'mdmSequenceControl',
-            'mdmReworkMode',
-            'mdmProcessSequenceControlMode'
-          ]
-        : ['mdmProcessRouteSequenceType', 'mdmMaterialIssueMethod', 'mdmMaterialBackflushMethod']
-    await Promise.all(dictionaryCodes.map((code) => userStore.ensureDictLoaded(code)))
     await dialogRef.value?.handleOpen(data, {
       title: data.mode === 'bom' ? '工单 BOM' : '工单工艺路线',
       subtitle: data.row.materialNameSnapshot,
       showFooter: false,
-      contentMaxHeight: '72vh'
+      contentMaxHeight: '72vh',
+      loading: true,
+      loadingText: '正在加载工单快照…',
+      onOpen: async (_openData, api) => {
+        try {
+          const [snapshotReferences, componentTypes] = await Promise.all([
+            data.canEdit
+              ? fetchWorkOrderSnapshotReferences(data.row.tenantId)
+              : Promise.resolve({
+                  componentTypes: [],
+                  materials: [],
+                  units: [],
+                  warehouses: [],
+                  departments: [],
+                  workCenters: []
+                }),
+            data.mode === 'bom'
+              ? fetchWorkOrderComponentTypes(data.row.tenantId)
+              : Promise.resolve([])
+          ])
+          references.value = { ...snapshotReferences, componentTypes }
+          const dictionaryCodes =
+            data.mode === 'route'
+              ? [
+                  'mdmProcessRouteSequenceType',
+                  'mdmProcessOperationMode',
+                  'mdmProcessingMode',
+                  'mdmReportMode',
+                  'mdmInspectionMode',
+                  'mdmSequenceControl',
+                  'mdmReworkMode',
+                  'mdmProcessSequenceControlMode'
+                ]
+              : [
+                  'mdmProcessRouteSequenceType',
+                  'mdmMaterialIssueMethod',
+                  'mdmMaterialBackflushMethod'
+                ]
+          await Promise.all(dictionaryCodes.map((code) => userStore.ensureDictLoaded(code)))
+        } finally {
+          api.setLoading(false)
+        }
+      }
     })
   }
 

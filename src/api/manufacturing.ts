@@ -735,7 +735,7 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
 
   let documentTypeQuery = supabase
     .from('mdm_document_type')
-    .select('id,extension_fields')
+    .select('id,extension_fields,project_required')
     .eq('menu_id', 'e1000000-0000-4000-8000-000000000002')
   if (tenantId) documentTypeQuery = documentTypeQuery.eq('tenant_id', tenantId)
   const [referenceResult, customerResult, documentTypeResult] = await Promise.all([
@@ -747,23 +747,25 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
       ...readOptions,
       showErrorMessage: false
     }),
-    responseHandle<Array<{ id: string; extensionFields: MesReferenceOption['extensionFields'] }>>(
-      () => documentTypeQuery,
-      { ...readOptions, showErrorMessage: false }
-    )
+    responseHandle<
+      Array<{
+        id: string
+        extensionFields: MesReferenceOption['extensionFields']
+        projectRequired: boolean
+      }>
+    >(() => documentTypeQuery, { ...readOptions, showErrorMessage: false })
   ])
-  const fieldsById = new Map(
-    (documentTypeResult.data ?? []).map((row) => [row.id, row.extensionFields ?? []])
-  )
+  const settingsById = new Map((documentTypeResult.data ?? []).map((row) => [row.id, row]))
   return {
     materials: referenceResult.data?.materials ?? [],
     customers: customerResult.data ?? [],
     projects: referenceResult.data?.projects ?? [],
     documentTypes: (referenceResult.data?.documentTypes ?? [])
-      .filter((row) => fieldsById.has(row.id))
+      .filter((row) => settingsById.has(row.id))
       .map((row) => ({
         ...row,
-        extensionFields: fieldsById.get(row.id) ?? []
+        extensionFields: settingsById.get(row.id)?.extensionFields ?? [],
+        projectRequired: settingsById.get(row.id)?.projectRequired ?? false
       })),
     employees: referenceResult.data?.employees ?? [],
     workCenters: referenceResult.data?.workCenters ?? []
@@ -827,21 +829,20 @@ export async function fetchMesConfirmedProjectBom(tenantId: string, projectId: s
   return data?.[0] ?? null
 }
 
-export async function fetchMesProjectConstructionNo(tenantId: string, projectId: string) {
-  const { data } = await responseHandle<Array<{ details: { constructionNo?: string } }>>(
+export async function fetchMesProjectSections(tenantId: string, projectId: string) {
+  const { data } = await responseHandle<
+    Array<{ constructionNo: string; sectionName: string; status: 'active' | 'closed' }>
+  >(
     () =>
       supabase
-        .from('scm_sales_document')
-        .select('details')
+        .from('mdm_project_construction')
+        .select('construction_no,section_name,status')
         .eq('tenant_id', tenantId)
         .eq('project_id', projectId)
-        .eq('kind', 'sales_contract')
-        .eq('status', 'effective')
-        .order('updated_at', { ascending: false })
-        .limit(1),
+        .order('construction_no'),
     { ...readOptions, showErrorMessage: false }
   )
-  return data?.[0]?.details?.constructionNo ?? null
+  return data ?? []
 }
 
 export async function fetchMesMaterialOptions(

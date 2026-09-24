@@ -15,6 +15,7 @@ export interface MesReferenceOption {
   specification?: string
   unit?: string
   extensionFields?: WorkOrderExtensionField[]
+  projectRequired?: boolean
 }
 
 export interface MesWorkOrderDetail {

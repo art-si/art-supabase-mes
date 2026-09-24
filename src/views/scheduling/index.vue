@@ -212,6 +212,7 @@
   import ArtTable from '@/components/core/tables/art-table/index.vue'
   import type { ArtTableExpose } from '@/components/core/tables/art-table/index.vue'
   import BusinessTableRowActions from '@/components/business/business-table-row-actions/index.vue'
+  import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import BusinessWorkspaceFocusToggle from '@/components/business/business-workspace-focus-toggle/index.vue'
   import BusinessWorkspaceHeader, {
     type BusinessWorkspaceMetric,
@@ -671,10 +672,13 @@
       prop: 'suggestedCenter',
       label: '排产建议工作中心',
       width: 216,
-      showOverflowTooltip: true,
       formatter: (row) => {
         const center = eligibleCenters(row).find((item) => item.id === draftFor(row).workCenterId)
-        return center ? `${center.code} ${center.name}` : '—'
+        return center ? (
+          <BusinessTableIdentityCell primary={center.name} secondary={center.code} />
+        ) : (
+          '—'
+        )
       }
     },
     {
