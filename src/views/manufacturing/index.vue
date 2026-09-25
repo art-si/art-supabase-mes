@@ -166,6 +166,7 @@
   } from '@/components/core/tables/art-table-query/index.vue'
   import type { ColumnOption } from '@/types'
   import TreeUtils from '@/utils/tree'
+  import { useAuth } from '@/hooks/core/useAuth'
   import {
     batchTransitionOperationTasks,
     batchTransitionWorkOrders,
@@ -241,6 +242,8 @@
   void declaredPermissions
 
   const route = useRoute()
+  const router = useRouter()
+  const { hasAuth } = useAuth()
   const isWorkOrder = computed(() => route.path.endsWith('/work-order'))
   const routeName = computed(() => (isWorkOrder.value ? 'MesWorkOrder' : 'MesOperationTask'))
   const title = computed(() => (isWorkOrder.value ? '生产工单' : '工序任务'))
@@ -1340,11 +1343,13 @@
                   }
                 ]
               : []),
-            ...(Number(row.warehousedQuantity) < Number(row.completedQuantity)
+            ...(Number(row.warehousedQuantity) < Number(row.completedQuantity) &&
+            hasAuth('WmsStockOperation:View') &&
+            hasAuth('WmsStockOperation:Receive')
               ? [
                   {
                     key: 'deliver',
-                    label: '交货',
+                    label: '生产入库',
                     icon: 'ri:inbox-archive-line',
                     auth: 'MesWorkOrder:Deliver'
                   }
@@ -1690,9 +1695,20 @@
       await tableRef.value?.refreshData()
       return
     }
-    if (action === 'report' || action === 'deliver') {
+    if (action === 'deliver') {
+      await router.push({
+        path: '/wms/receipt-issue/stock-operation',
+        query: {
+          movementType: 'production_in',
+          workOrderId: row.id,
+          ...(row.inboundWarehouseId ? { warehouseId: row.inboundWarehouseId } : {})
+        }
+      })
+      return
+    }
+    if (action === 'report') {
       await loadProgressDialog()
-      await progressDialogRef.value?.handleOpen({ row, action })
+      await progressDialogRef.value?.handleOpen({ row })
       return
     }
     if (action === 'annotate') {

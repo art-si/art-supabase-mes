@@ -190,22 +190,18 @@ export async function saveWorkOrderSnapshot(
   return data ?? undefined
 }
 
-export async function recordWorkOrderProgress(
-  id: string,
-  action: 'report' | 'deliver',
-  quantity: number
-) {
+export async function recordWorkOrderProgress(id: string, quantity: number) {
   const { data } = await responseHandle<MesWorkOrder>(
     () =>
       supabase.rpc('mes_record_work_order_progress', {
         p_id: id,
-        p_action: action,
+        p_action: 'report',
         p_quantity: quantity
       }),
     {
       ...writeOptions,
       requireAffected: false,
-      message: action === 'report' ? '报工成功' : '交货成功'
+      message: '报工成功'
     }
   )
   return data ?? undefined
