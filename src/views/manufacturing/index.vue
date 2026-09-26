@@ -237,7 +237,9 @@
     'MesOperationTask:Reopen',
     'MesOperationTask:Delete',
     'MesOperationTask:Annotate',
-    'MesOperationTask:MaintainDueDate'
+    'MesOperationTask:MaintainDueDate',
+    'WmsIssueRequest:View',
+    'WmsIssueRequest:Create'
   ] as const
   void declaredPermissions
 
@@ -1327,6 +1329,16 @@
         : []),
       ...(row.status === 'confirmed'
         ? [
+            ...(hasAuth('WmsIssueRequest:View') && hasAuth('WmsIssueRequest:Create')
+              ? [
+                  {
+                    key: 'issue-request',
+                    label: '申请领料',
+                    icon: 'ri:logout-box-r-line',
+                    auth: 'WmsIssueRequest:Create'
+                  }
+                ]
+              : []),
             {
               key: 'abnormal',
               label: '标记异常',
@@ -1681,6 +1693,13 @@
     }
   }
   async function handleWorkOrderAction(row: MesWorkOrder, action: string) {
+    if (action === 'issue-request') {
+      await router.push({
+        path: '/wms/receipt-issue/issue-request',
+        query: { workOrderId: row.id }
+      })
+      return
+    }
     if (action === 'financial_close') {
       await confirmAction(`确认工单“${row.workOrderNo}”已完成财务结算并永久关闭吗？`, '财务关闭', {
         confirmButtonText: '确认财务关闭'

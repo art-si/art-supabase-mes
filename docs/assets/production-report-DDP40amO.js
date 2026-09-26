@@ -1,0 +1,1 @@
+import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-B53NdkV7.js";import{t as r}from"./production-workspace-4ybY_R27.js";var i=e({name:`MesProductionReport`,__name:`index`,setup(e){return(e,i)=>(t(),n(r))}});export{i as default};
