@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Art Supabase MES</h1>
+  <h1>Yiqi Workshop MES</h1>
   <p><strong>Manufacturing execution for production planning, shop-floor operations, and end-to-end traceability</strong></p>
   <p>A production-order-centered roadmap for scheduling, dispatching, reporting, inspection, completion, and lot/serial traceability.</p>
 
@@ -18,7 +18,7 @@
 
 ## Positioning
 
-Art Supabase MES is the manufacturing-execution application for Art Supabase Pro. Its target is a traceable production loop connecting standards, plans, shop-floor tasks, personnel and equipment results, quality outcomes, and material lots.
+Yiqi Workshop MES is the manufacturing-execution application for Yiqi Workshop. Its target is a traceable production loop connecting standards, plans, shop-floor tasks, personnel and equipment results, quality outcomes, and material lots.
 
 Authentication, tenancy, navigation, authorization, layout, shared components, stores, and the common Supabase client remain owned by [`art-supabase-pro`](https://gitee.com/wangyanghub/art-supabase-pro). MDM and its authoritative sources provide material, equipment, personnel, production-organization, work-center, and process-route identities.
 

@@ -72,9 +72,12 @@
               clearable
               placeholder="工序状态"
             >
-              <ElOption label="未报工" value="unreported" />
-              <ElOption label="部分报工" value="partial" />
-              <ElOption label="已报工" value="reported" />
+              <ElOption
+                v-for="option in completionOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
             </ElSelect>
             <ElInput
               v-model="keyword"
@@ -516,6 +519,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
@@ -556,6 +560,8 @@
   import { buildExecutionUserOptions } from './execution-user-options'
   import ExecutionEventWorkspace from './execution-event-workspace.vue'
   import ProductionReportForm from './production-report-form.vue'
+
+  const completionOptions = useDictionaryOptions('mesProductionCompletionFilter')
 
   type ConsoleMode =
     | 'menu'

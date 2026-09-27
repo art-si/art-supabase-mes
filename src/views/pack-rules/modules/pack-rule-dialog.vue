@@ -21,12 +21,17 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import { cloneDeep } from 'lodash-es'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
   import { savePackRule, type PackRule, type PackRuleInput } from '@mes/api'
+
+  const mesPackRuleBoardTypeOptions = useDictionaryOptions('mesPackRuleBoardType')
+  const mesPackRuleSmallPackModeOptions = useDictionaryOptions('mesPackRuleSmallPackMode')
+  const mesPackRuleSortOrderOptions = useDictionaryOptions('mesPackRuleSortOrder')
 
   interface OpenData {
     tenantId: string
@@ -60,10 +65,7 @@
       key: 'ruleCode',
       label: '板材类型',
       type: 'select',
-      options: [
-        { label: '岩棉夹芯板', value: 'ROCK_BOARD' },
-        { label: '聚氨酯夹芯板', value: 'PU_BOARD' }
-      ]
+      options: mesPackRuleBoardTypeOptions
     },
     { key: 'ruleName', label: '规则名称', type: 'input', props: { maxlength: 80 } },
     { key: 'enabled', label: '启用', type: 'switch' },
@@ -84,22 +86,14 @@
       key: 'remainderPolicy',
       label: '尾数处理',
       type: 'select',
-      options: [
-        { label: '独立小包', value: 'separate' },
-        { label: '尝试并入已有包', value: 'merge' },
-        { label: '提示人工处理', value: 'manual' }
-      ]
+      options: mesPackRuleSmallPackModeOptions
     },
     {
       key: 'sortPriority',
       label: '聚合顺序',
       type: 'select',
       span: 24,
-      options: [
-        { label: '区域 → 宽度 → 长度 → 编号', value: 'area,width,length,boardNo' },
-        { label: '区域 → 长度 → 宽度 → 编号', value: 'area,length,width,boardNo' },
-        { label: '宽度 → 长度 → 区域 → 编号', value: 'width,length,area,boardNo' }
-      ]
+      options: mesPackRuleSortOrderOptions
     },
     { key: 'remark', label: '备注', type: 'textarea', span: 24, props: { rows: 2 } }
   ]

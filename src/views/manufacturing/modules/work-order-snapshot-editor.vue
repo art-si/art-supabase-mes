@@ -421,7 +421,7 @@
               status: 'draft',
               items: []
             }
-            const nextItem = next as unknown as MesWorkOrderBomItemSnapshot
+            const nextItem: MesWorkOrderBomItemSnapshot = { ...createBomItem(), ...next }
             const step = row.value.routeSnapshot?.steps?.find(
               (entry) => entry.id === nextItem.assignedRouteStepId
             )
@@ -449,7 +449,7 @@
               delete (route as Record<string, unknown>).steps
               route.steps = cloneDeep(row.value.routeSnapshot?.steps ?? [])
             } else {
-              const nextStep = next as unknown as MesWorkOrderRouteStepSnapshot
+              const nextStep: MesWorkOrderRouteStepSnapshot = { ...createRouteStep(), ...next }
               nextStep.departmentName =
                 references.value.departments.find((entry) => entry.id === nextStep.departmentId)
                   ?.name ?? ''

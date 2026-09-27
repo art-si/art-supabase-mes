@@ -260,6 +260,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, onMounted, reactive, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
@@ -296,6 +297,13 @@
     type MesReportDefect
   } from '@mes/api'
   import { useExecutionScope } from './use-execution-scope'
+
+  const commonEnabledStatusOptions = useDictionaryOptions(
+    'commonEnabledStatus',
+    (value) => value === 'enabled'
+  )
+
+  const mesDefectSourceOptions = useDictionaryOptions('mesDefectSource')
 
   type DefectRow = MesReportDefect & { report: MesProductionReport }
   const props = withDefaults(defineProps<{ initialTab?: 'reasons' | 'details' }>(), {
@@ -347,10 +355,7 @@
       props: {
         clearable: true,
         placeholder: '全部类别',
-        options: [
-          { label: '加工不良', value: 'process' },
-          { label: '来料不良', value: 'material' }
-        ]
+        options: mesDefectSourceOptions
       }
     },
     ...(tab.value === 'details'
@@ -413,10 +418,7 @@
       label: '不良类别',
       type: 'segment',
       props: {
-        options: [
-          { label: '加工不良', value: 'process' },
-          { label: '来料不良', value: 'material' }
-        ]
+        options: mesDefectSourceOptions
       }
     },
     {
@@ -440,10 +442,7 @@
       label: '启用状态',
       type: 'segment',
       props: {
-        options: [
-          { label: '启用', value: true },
-          { label: '停用', value: false }
-        ]
+        options: commonEnabledStatusOptions
       }
     },
     { key: 'remark', label: '备注', type: 'textarea', span: 24, props: { rows: 3, maxlength: 500 } }

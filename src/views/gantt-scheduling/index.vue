@@ -94,10 +94,12 @@
               <label class="gantt-page__filter-field">
                 <span>计划期间</span>
                 <ElSelect v-model="filters.periodPreset" @change="applyPeriodPreset">
-                  <ElOption label="未来 7 天" value="7" />
-                  <ElOption label="未来 14 天" value="14" />
-                  <ElOption label="未来 30 天" value="30" />
-                  <ElOption label="自定义" value="custom" />
+                  <ElOption
+                    v-for="option in periodPresetOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </ElSelect>
               </label>
 
@@ -200,6 +202,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, reactive, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
@@ -249,6 +252,8 @@
     taskTone,
     type GanttShiftSlot
   } from './modules/gantt-schedule-policy'
+
+  const periodPresetOptions = useDictionaryOptions('mesGanttPeriodPreset')
 
   defineOptions({ name: 'MesSchedulingGantt' })
 

@@ -117,6 +117,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import { computed, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import ArtDrawer from '@/components/core/drawers/art-drawer/index.vue'
@@ -137,6 +138,8 @@
     type MesPmisEquipmentKind,
     type MesPmisEquipmentTask
   } from '@mes/api'
+
+  const mesEquipmentTaskStatusOptions = useDictionaryOptions('mesEquipmentTaskStatus')
 
   defineOptions({ name: 'MesPmisEquipmentTasks' })
   const props = defineProps<{
@@ -187,14 +190,7 @@
       props: {
         clearable: true,
         placeholder: '全部状态',
-        options: [
-          { label: '待执行', value: 'pending' },
-          { label: '已逾期', value: 'overdue' },
-          { label: '待确认', value: 'pending_confirm' },
-          { label: '已完成', value: 'completed' },
-          { label: '逾期完成', value: 'completed_overdue' },
-          { label: '已豁免', value: 'exempt' }
-        ]
+        options: mesEquipmentTaskStatusOptions
       }
     },
     {

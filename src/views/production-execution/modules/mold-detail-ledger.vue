@@ -262,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
@@ -289,6 +290,8 @@
     type MesExecutionPerson
   } from '@mes/api'
   import { useExecutionScope } from './use-execution-scope'
+
+  const mesMoldMountStatusOptions = useDictionaryOptions('mesMoldMountStatus')
 
   const {
     scope,
@@ -332,10 +335,7 @@
         multiple: true,
         collapseTags: true,
         placeholder: '全部状态',
-        options: [
-          { label: '上模中', value: 'open' },
-          { label: '已下模', value: 'closed' }
-        ]
+        options: mesMoldMountStatusOptions
       }
     },
     {

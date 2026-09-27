@@ -786,6 +786,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
@@ -829,6 +830,8 @@
   import { useExecutionScope } from './use-execution-scope'
   import { buildExecutionUserOptions } from './execution-user-options'
   import PmisEquipmentTasks from './pmis-equipment-tasks.vue'
+
+  const mesExecutionEventStatusOptions = useDictionaryOptions('mesExecutionEventStatus')
 
   type Mode =
     'andon' | 'exception' | 'misc_piece' | 'misc_report' | 'inspection' | 'mold' | 'equipment'
@@ -1068,12 +1071,7 @@
         multiple: true,
         collapseTags: true,
         placeholder: '全部状态',
-        options: [
-          { label: '待处理', value: 'open' },
-          { label: '处理中', value: 'responding' },
-          { label: '已关闭', value: 'closed' },
-          { label: '已完成', value: 'completed' }
-        ]
+        options: mesExecutionEventStatusOptions
       }
     },
     {

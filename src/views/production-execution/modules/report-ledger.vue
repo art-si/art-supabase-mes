@@ -356,6 +356,7 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
@@ -388,6 +389,8 @@
   } from '@mes/api'
   import { useExecutionScope } from './use-execution-scope'
   import ProductionReportForm from './production-report-form.vue'
+
+  const mesReportApprovalStatusOptions = useDictionaryOptions('mesReportApprovalStatus')
 
   type Mode = 'detail' | 'allocation' | 'approval'
   const { confirmAction, promptReason } = useArtFeedback()
@@ -474,11 +477,7 @@
         multiple: true,
         collapseTags: true,
         placeholder: '全部状态',
-        options: [
-          { label: '待审批', value: 'pending' },
-          { label: '已审批', value: 'approved' },
-          { label: '已驳回', value: 'rejected' }
-        ]
+        options: mesReportApprovalStatusOptions
       }
     },
     {

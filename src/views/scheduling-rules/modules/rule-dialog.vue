@@ -21,12 +21,18 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import { cloneDeep } from 'lodash-es'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
   import { saveSchedulingRule, type MesSchedulingRule, type MesSchedulingRuleInput } from '@mes/api'
+
+  const mesSchedulingConflictPolicyOptions = useDictionaryOptions('mesSchedulingConflictPolicy')
+  const mesSchedulingDirectionOptions = useDictionaryOptions('mesSchedulingDirection')
+  const mesSchedulingPriorityRuleOptions = useDictionaryOptions('mesSchedulingPriorityRule')
+  const mesSchedulingWorkCenterRuleOptions = useDictionaryOptions('mesSchedulingWorkCenterRule')
 
   export interface RuleDialogOpenData {
     tenantId: string
@@ -73,41 +79,25 @@
       key: 'direction',
       label: '排产方向',
       type: 'select',
-      options: [
-        { label: '正向排产', value: 'forward' },
-        { label: '反向排产', value: 'backward' }
-      ]
+      options: mesSchedulingDirectionOptions
     },
     {
       key: 'dispatchingRule',
       label: '派工顺序',
       type: 'select',
-      options: [
-        { label: '综合优先级', value: 'priority' },
-        { label: '最早交期 EDD', value: 'edd' },
-        { label: '先进先出 FIFO', value: 'fifo' },
-        { label: '最短加工时间 SPT', value: 'spt' }
-      ]
+      options: mesSchedulingPriorityRuleOptions
     },
     {
       key: 'resourceSelectionStrategy',
       label: '资源选择',
       type: 'select',
-      options: [
-        { label: '最早可用', value: 'earliest_available' },
-        { label: '负荷最低', value: 'least_load' },
-        { label: '优先指定中心', value: 'preferred' }
-      ]
+      options: mesSchedulingWorkCenterRuleOptions
     },
     {
       key: 'conflictStrategy',
       label: '冲突策略',
       type: 'select',
-      options: [
-        { label: '阻止应用', value: 'reject' },
-        { label: '警告后继续', value: 'warn' },
-        { label: '允许冲突', value: 'allow' }
-      ]
+      options: mesSchedulingConflictPolicyOptions
     },
     { key: 'finiteCapacity', label: '启用有限产能', type: 'switch' },
     { key: 'respectCalendar', label: '遵循生产日历', type: 'switch' },

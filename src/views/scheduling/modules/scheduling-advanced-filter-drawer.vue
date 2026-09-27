@@ -22,10 +22,15 @@
 </template>
 
 <script setup lang="ts">
+  import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import ArtDrawer from '@/components/core/drawers/art-drawer/index.vue'
   import type { ArtDrawerExpose } from '@/components/core/drawers/art-drawer/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
+
+  const mesOperationTaskScheduleStatusOptions = useDictionaryOptions(
+    'mesOperationTaskScheduleStatus'
+  )
 
   defineOptions({ name: 'SchedulingAdvancedFilterDrawer' })
 
@@ -75,12 +80,7 @@
       type: 'select',
       span: 24,
       props: { clearable: true, placeholder: '全部排产状态' },
-      options: [
-        { label: '待排产', value: 'pending' },
-        { label: '已排产', value: 'scheduled' },
-        { label: '无需排产', value: 'no_schedule' },
-        { label: '已结案', value: 'closed' }
-      ]
+      options: mesOperationTaskScheduleStatusOptions
     }
   ]
 

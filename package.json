@@ -8,7 +8,7 @@
     "node": ">=22.0.0",
     "pnpm": ">=11.9.0"
   },
-  "description": "Art Supabase Pro 的 MES 制造执行应用",
+  "description": "亿企工场的 MES 制造执行应用",
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*"
