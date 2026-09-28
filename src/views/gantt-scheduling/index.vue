@@ -43,6 +43,7 @@
         />
 
         <ArtSectionCard
+          :show-scrollbar="false"
           class="gantt-page__board"
           title="班次排产工作台"
           :subtitle="`${rangeLabel} · ${visibleTasks.length} 道工序 · ${visibleGroups.length} 个工作中心`"

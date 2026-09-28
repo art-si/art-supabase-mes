@@ -91,6 +91,7 @@
           </div>
           <div class="production-workspace__three">
             <ArtSectionCard
+              :show-scrollbar="false"
               class="production-workspace__task-card"
               title="工序任务一览"
               :subtitle="
@@ -296,6 +297,7 @@
               </div>
             </ElScrollbar>
             <ArtSectionCard
+              :show-scrollbar="false"
               class="production-workspace__attendance"
               title="出勤记录"
               subtitle="上机、下机时间与现场人员"

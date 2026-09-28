@@ -40,6 +40,7 @@
       >
         <template #primary>
           <ArtSectionCard
+            :show-scrollbar="false"
             class="packing-page__orders"
             title="待排生产工单"
             :subtitle="`PP20 板材加工 · 当前 ${visibleOrders.length} 单`"
