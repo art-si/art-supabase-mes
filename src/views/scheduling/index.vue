@@ -95,6 +95,7 @@
         :class="{ 'is-overview-collapsed': overviewCollapsed }"
       >
         <ArtSectionCard
+          :show-scrollbar="false"
           class="scheduling-page__task-card"
           :title="`待排产任务（约 ${totalStandardHours.toFixed(1)} 标准工时 H）`"
           :subtitle="`${pendingTasks.length} 条待排工序任务 · 与工序任务列表共用同一数据源`"

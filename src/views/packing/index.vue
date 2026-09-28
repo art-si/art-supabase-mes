@@ -160,6 +160,7 @@
               >
                 <ArtSectionCard
                   class="packing-page__panel"
+                  :show-scrollbar="false"
                   title="工单板材明细"
                   :subtitle="`剩余 ${remainingTotal} 块 · 单击联动，双击排包`"
                   :loading="detailLoading"
@@ -237,6 +238,7 @@
           </template>
           <ArtSectionCard
             class="packing-page__panel packing-page__results"
+            :show-scrollbar="false"
             title="排包单"
             :subtitle="
               selectedOrder
