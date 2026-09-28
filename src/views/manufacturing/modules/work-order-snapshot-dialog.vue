@@ -38,6 +38,7 @@
       >
         <template v-if="canEdit" #actions>
           <ElButton v-auth="'MesWorkOrder:Edit'" type="primary" plain @click="openEditor('item')">
+            <template #icon><ArtSvgIcon icon="ri:add-line" /></template>
             新增组件
           </ElButton>
         </template>
@@ -62,9 +63,11 @@
       >
         <template v-if="canEdit" #actions>
           <ElButton v-auth="'MesWorkOrder:Edit'" @click="openEditor('header')">
+            <template #icon><ArtSvgIcon icon="ri:edit-line" /></template>
             编辑路线信息
           </ElButton>
           <ElButton v-auth="'MesWorkOrder:Edit'" type="primary" plain @click="openEditor('item')">
+            <template #icon><ArtSvgIcon icon="ri:add-line" /></template>
             新增工序
           </ElButton>
         </template>
@@ -93,6 +96,7 @@
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
   import ArtDictDisplay from '@/components/core/base/art-dict-display/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
+  import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
   import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import { useUserStore } from '@/store/modules/user'
   import { formatNumberValue } from '@/utils/ui'
@@ -326,26 +330,26 @@
       )
     },
     {
-      prop: 'actions',
+      prop: 'operation',
       label: '操作',
       width: 112,
       fixed: 'right',
       formatter: (row) =>
         canEdit.value ? (
-          <span class="inline-flex items-center gap-1">
+          <>
             <ArtButtonTable
               permission="MesWorkOrder:Edit"
-              icon="ri:edit-line"
+              type="edit"
               label="编辑组件"
               onClick={() => openEditor('item', row)}
             />
             <ArtButtonTable
               permission="MesWorkOrder:Edit"
-              icon="ri:delete-bin-line"
+              type="delete"
               label="删除组件"
               onClick={() => void deleteItem(row.id)}
             />
-          </span>
+          </>
         ) : (
           '—'
         )
@@ -535,26 +539,26 @@
     },
     { prop: 'description', label: '工序说明', minWidth: 220, showOverflowTooltip: true },
     {
-      prop: 'actions',
+      prop: 'operation',
       label: '操作',
       width: 112,
       fixed: 'right',
       formatter: (row) =>
         canEdit.value ? (
-          <span class="inline-flex items-center gap-1">
+          <>
             <ArtButtonTable
               permission="MesWorkOrder:Edit"
-              icon="ri:edit-line"
+              type="edit"
               label="编辑工序"
               onClick={() => openEditor('item', row)}
             />
             <ArtButtonTable
               permission="MesWorkOrder:Edit"
-              icon="ri:delete-bin-line"
+              type="delete"
               label="删除工序"
               onClick={() => void deleteItem(row.id)}
             />
-          </span>
+          </>
         ) : (
           '—'
         )

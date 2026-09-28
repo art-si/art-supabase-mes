@@ -525,15 +525,23 @@
   }
 
   async function loadReferences() {
+    const tenantId = model.tenantId
     const [nextReferences, nextMaterialCategories] = await Promise.all([
-      fetchMesReferences(model.tenantId),
-      fetchMesMaterialCategories(model.tenantId)
+      fetchMesReferences(tenantId),
+      fetchMesMaterialCategories(tenantId)
     ])
+    if (model.tenantId !== tenantId) return
     references.value = nextReferences
     materialCategories.value = nextMaterialCategories
+    if (!currentId.value && !model.workOrderTypeId) {
+      model.workOrderTypeId =
+        nextReferences.documentTypes.find((item) => item.code === 'PP40')?.id ?? null
+    }
   }
   async function handleTenantChange(): Promise<void> {
     applyMaterial()
+    model.workOrderTypeId = null
+    for (const key of Object.keys(extensionValues)) delete extensionValues[key]
     model.projectId = null
     model.constructionNo = null
     projectSections.value = []

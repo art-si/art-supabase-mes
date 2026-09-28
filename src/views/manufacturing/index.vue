@@ -945,6 +945,7 @@
         <BusinessTableRowActions>
           <ArtButtonTable
             permission="MesWorkOrder:View"
+            type="view"
             icon="ri:organization-chart"
             label="BOM"
             showLabel
@@ -952,6 +953,7 @@
           />
           <ArtButtonTable
             permission="MesWorkOrder:View"
+            type="view"
             icon="ri:git-branch-line"
             label="工艺路线"
             showLabel
@@ -962,6 +964,7 @@
             ['pending', 'abnormal'].includes(row.status) && (
               <ArtButtonTable
                 permission="MesWorkOrder:ReloadSnapshot"
+                type="sign"
                 icon="ri:refresh-line"
                 label="重读 BOM/工艺"
                 showLabel

@@ -312,7 +312,7 @@
                   link
                   type="primary"
                   @click="openClock('in')"
-                  >上机打卡</ElButton
+                  ><template #icon><ArtSvgIcon icon="ri:time-line" /></template>上机打卡</ElButton
                 ></template
               >
               <template v-if="selectedTask">
