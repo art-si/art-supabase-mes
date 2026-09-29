@@ -15,6 +15,8 @@ export interface MesReferenceOption {
   specification?: string
   unit?: string
   extensionFields?: WorkOrderExtensionField[]
+  packingEnabled?: boolean
+  packingThicknessFieldKey?: string | null
   projectRequired?: boolean
 }
 
@@ -257,6 +259,9 @@ export interface MesWorkOrder {
   workOrderTypeId: string | null
   extensionValues: WorkOrderExtensionValues
   extensionSchemaSnapshot: WorkOrderExtensionField[]
+  packingEnabledSnapshot: boolean
+  packingThicknessFieldKeySnapshot: string | null
+  packingRuleId: string | null
   details: MesWorkOrderDetail[]
   projectId: string | null
   constructionNo: string | null

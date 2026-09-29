@@ -5,7 +5,7 @@
         icon="ri:archive-stack-line"
         eyebrow="PACKING POLICY"
         :title="model.ruleName || '排包规则'"
-        description="分别维护聚氨酯板和岩棉板的装包上限与聚合顺序。"
+        description="按板材类型和板厚配置装包上限、同编号约束与聚合顺序。"
       />
       <ArtForm
         ref="formRef"
@@ -49,13 +49,15 @@
     enabled: true,
     maxPieces: 8,
     maxStackHeight: 600,
+    boardThicknessMm: null,
     maxWeight: null,
     maxLength: null,
     sameWidth: true,
     sameArea: true,
+    sameNumber: true,
     allowMixLength: false,
     remainderPolicy: 'separate',
-    sortPriority: 'area,width,length,boardNo',
+    sortPriority: 'area,boardNo,width,length',
     remark: ''
   })
   const model = reactive(initial())
@@ -72,6 +74,13 @@
     { key: 'limits', label: '单包约束', type: 'divider', span: 24 },
     { key: 'maxPieces', label: '最多块数', type: 'number', props: { min: 1, precision: 0 } },
     { key: 'maxStackHeight', label: '最高堆叠 mm', type: 'number', props: { min: 1 } },
+    {
+      key: 'boardThicknessMm',
+      label: '板厚 mm（选填）',
+      type: 'number',
+      props: { min: 0.01, precision: 4 },
+      help: '填写后仅匹配该板厚的生产工单；留空适配全部板厚。'
+    },
     { key: 'maxWeight', label: '最大重量 kg（选填）', type: 'number', props: { min: 0 } },
     { key: 'maxLength', label: '最长板材 mm（选填）', type: 'number', props: { min: 0 } },
     { key: 'sameWidth', label: '同宽度优先', type: 'switch' },
@@ -81,6 +90,7 @@
       type: 'switch',
       props: { disabled: true }
     },
+    { key: 'sameNumber', label: '同编号打包（不可跨编号）', type: 'switch' },
     { key: 'allowMixLength', label: '允许混长', type: 'switch' },
     {
       key: 'remainderPolicy',
@@ -109,7 +119,7 @@
     model.sameArea = true
     await dialogRef.value?.handleOpen(data, {
       title: editId.value ? '编辑排包规则' : '新增排包规则',
-      subtitle: '同一租户每种板材类型维护一套规则。',
+      subtitle: '同一板材类型可按板厚维护多套规则；留空板厚作为通用规则。',
       confirmText: '保存规则',
       contentMaxHeight: '70vh',
       onOpen: () => formRef.value?.clearValidate(),

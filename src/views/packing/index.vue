@@ -14,7 +14,7 @@
         <template #actions>
           <ElButton
             v-auth="'MesPacking:Auto'"
-            :disabled="!selectedOrder || !boards.length || busy"
+            :disabled="!selectedOrder || !boards.length || busy || isPublished"
             @click="autoPack"
           >
             <ArtSvgIcon icon="ri:magic-line" />自动排包
@@ -23,10 +23,37 @@
             v-auth="'MesPacking:Save'"
             type="primary"
             :loading="busy"
-            :disabled="!selectedOrder || !dirty"
+            :disabled="!selectedOrder || (!dirty && !needsRuleBinding) || isPublished"
             @click="save"
           >
             <ArtSvgIcon icon="ri:save-line" />保存数据
+          </ElButton>
+          <ElButton
+            v-auth="'MesPacking:Publish'"
+            :disabled="
+              !selectedOrder ||
+              !packs.length ||
+              !selectedOrder.packingRuleId ||
+              needsRuleBinding ||
+              dirty ||
+              busy ||
+              isPublished
+            "
+            :title="
+              !selectedOrder?.packingRuleId || needsRuleBinding
+                ? '请先按所选规则保存排包数据'
+                : undefined
+            "
+            @click="publish"
+          >
+            <ArtSvgIcon icon="ri:send-plane-line" />发布
+          </ElButton>
+          <ElButton
+            v-auth="'MesPacking:Repack'"
+            :disabled="!selectedOrder || busy || !isPublished"
+            @click="repack"
+          >
+            <ArtSvgIcon icon="ri:restart-line" />重排包
           </ElButton>
         </template>
       </BusinessWorkspaceHeader>
@@ -43,12 +70,12 @@
             :show-scrollbar="false"
             class="packing-page__orders"
             title="待排生产工单"
-            :subtitle="`PP20 板材加工 · 当前 ${visibleOrders.length} 单`"
+            :subtitle="`需排包工单 · 当前 ${visibleOrders.length} 单`"
             :loading="loading"
             :error="error"
             :empty="!loading && !error && !orders.length"
-            empty-title="暂无板材加工工单"
-            empty-description="请先在生产工单中创建 PP20 板材加工工单。"
+            empty-title="暂无需排包工单"
+            empty-description="请先创建已启用排包配置的生产工单。"
             @retry="loadOrders"
           >
             <div class="packing-page__filters">
@@ -70,7 +97,7 @@
                 clearable
                 aria-label="要求开工日期区间"
               />
-              <ElCheckbox v-model="includePacked">包含已排包</ElCheckbox>
+              <ElCheckbox v-model="includePacked">包含已排包和已发布</ElCheckbox>
             </div>
             <ElScrollbar class="packing-page__order-scroll" always>
               <div v-if="visibleOrders.length" class="packing-page__order-list">
@@ -114,7 +141,7 @@
               <span>自动排包规则</span>
               <ElSelect
                 v-model="selectedRuleId"
-                :disabled="!selectedOrder"
+                :disabled="!selectedOrder || isPublished"
                 placeholder="选择板材排包规则"
                 aria-label="板材排包规则"
               >
@@ -180,7 +207,7 @@
                       <ElButton
                         v-auth="'MesPacking:Manual'"
                         size="small"
-                        :disabled="!selectedBoards.length"
+                        :disabled="!selectedBoards.length || !canManual"
                         @click="createPack"
                       >
                         <ArtSvgIcon icon="ri:archive-stack-line" />批量排包
@@ -188,7 +215,7 @@
                       <ElButton
                         v-auth="'MesPacking:Manual'"
                         size="small"
-                        :disabled="!selectedBoards.length || !selectedPack"
+                        :disabled="!selectedBoards.length || !selectedPack || !canManual"
                         @click="mergeSelected"
                       >
                         <ArtSvgIcon icon="ri:git-merge-line" />并入选中包
@@ -216,10 +243,15 @@
                         v-auth="'MesPacking:Manual'"
                         link
                         type="primary"
+                        :disabled="!canManual"
                         @click.stop="addBoard(row)"
                         >排包</ElButton
                       >
-                      <ElButton v-auth="'MesPacking:Spec'" link @click.stop="openSpec(row)"
+                      <ElButton
+                        v-auth="'MesPacking:Spec'"
+                        link
+                        :disabled="isPublished"
+                        @click.stop="openSpec(row)"
                         >参数</ElButton
                       >
                     </template>
@@ -232,7 +264,7 @@
                 title="开始排包"
                 empty
                 empty-title="请选择生产工单"
-                empty-description="从左侧 PP20 工单列表选择一单，查看板材明细并进行排包。"
+                empty-description="从左侧需排包工单列表选择一单，查看板材明细并进行排包。"
               />
             </div>
           </template>
@@ -253,14 +285,14 @@
               <ElButton
                 v-auth="'MesPacking:Manual'"
                 size="small"
-                :disabled="selectedPacks.length < 2"
+                :disabled="selectedPacks.length < 2 || !canManual"
                 @click="mergePacks"
                 ><ArtSvgIcon icon="ri:git-merge-line" />合包</ElButton
               >
               <ElButton
                 v-auth="'MesPacking:Manual'"
                 size="small"
-                :disabled="selectedPacks.length !== 1 || !selectedPackItems.length"
+                :disabled="selectedPacks.length !== 1 || !selectedPackItems.length || !canManual"
                 @click="splitPack"
                 ><ArtSvgIcon icon="ri:git-branch-line" />拆包</ElButton
               >
@@ -268,6 +300,13 @@
                 ><ArtSvgIcon icon="ri:filter-off-line" />全部明细</ElButton
               >
               <ElTag v-if="dirty" size="small" type="warning" effect="light">未保存</ElTag>
+              <ElTag
+                v-else-if="needsRuleBinding && !isPublished"
+                size="small"
+                type="warning"
+                effect="light"
+                >待按规则保存</ElTag
+              >
             </div>
             <div class="packing-page__linkage">
               <span>{{
@@ -319,6 +358,7 @@
                   v-auth="'MesPacking:Manual'"
                   link
                   type="danger"
+                  :disabled="!canManual"
                   @click="removeItem(row.pack, row.item.boardId)"
                   >移出</ElButton
                 ></template
@@ -369,11 +409,12 @@
     fetchWorkOrderBoards,
     fetchWorkOrderPacks,
     savePackingPlan,
+    setPackingPublication,
     type PackDraft,
     type PackRule,
     type WorkOrderBoard
   } from '@mes/api'
-  import { remainingPieces, suggestPacks, validatePlan } from './modules/packing-plan'
+  import { packTotals, remainingPieces, suggestPacks, validatePlan } from './modules/packing-plan'
   import PackingBoardSpecDialog from './modules/packing-board-spec-dialog.vue'
 
   defineOptions({ name: 'MesPacking' })
@@ -382,7 +423,9 @@
     'MesPacking:Spec',
     'MesPacking:Auto',
     'MesPacking:Manual',
-    'MesPacking:Save'
+    'MesPacking:Save',
+    'MesPacking:Publish',
+    'MesPacking:Repack'
   ] as const
   void declaredPermissions
   type Order = Awaited<ReturnType<typeof fetchPackingOrders>>[number]
@@ -391,7 +434,7 @@
   const { effectiveTenantId } = storeToRefs(tenantScope)
   const { confirm, promptText } = useArtFeedback()
   const { hasAuth } = useAuth()
-  const canManual = computed(() => hasAuth('MesPacking:Manual'))
+  const canManual = computed(() => hasAuth('MesPacking:Manual') && !isPublished.value)
   const orders = ref<Order[]>([])
   const rules = ref<PackRule[]>([])
   const selectedRuleId = ref('')
@@ -523,11 +566,10 @@
     boardTableRef.value?.elTableRef?.setCurrentRow()
   }
   function orderStatus(order: Order): { label: string; type: 'success' | 'warning' | 'info' } {
+    if (order.packingStatus === 'published') return { label: '已发布', type: 'success' }
     const count =
       order.id === orderId.value && !detailLoading.value ? packedTotal.value : order.packedPieces
-    if (order.boardPieces > 0 && count >= order.boardPieces)
-      return { label: '已排包', type: 'success' }
-    return count > 0 ? { label: '部分排包', type: 'warning' } : { label: '未排包', type: 'info' }
+    return count > 0 ? { label: '已排包', type: 'warning' } : { label: '未排包', type: 'info' }
   }
   const specDialogRef = ref<{ handleOpen: (row: WorkOrderBoard) => Promise<void> }>()
   const loading = ref(false)
@@ -539,11 +581,18 @@
   const revision = ref('')
   let detailRequest = 0
   const selectedOrder = computed(() => orders.value.find((order) => order.id === orderId.value))
+  const isPublished = computed(() => selectedOrder.value?.packingStatus === 'published')
+  const needsRuleBinding = computed(
+    () =>
+      Boolean(selectedOrder.value && packs.value.length && selectedRuleId.value) &&
+      selectedOrder.value?.packingRuleId !== selectedRuleId.value
+  )
   const visibleOrders = computed(() => {
     const needle = keyword.value.trim().toLocaleLowerCase()
     const [from, to] = startDates.value || []
     return orders.value.filter((order) => {
-      if (!includePacked.value && order.packingStatus === 'packed') return false
+      if (!includePacked.value && order.packingStatus !== 'unpacked' && order.id !== orderId.value)
+        return false
       if (from && (!order.plannedStartDate || order.plannedStartDate < from)) return false
       if (to && (!order.plannedStartDate || order.plannedStartDate > to)) return false
       if (!needle) return true
@@ -558,7 +607,13 @@
     })
   })
   const scopedRules = computed(() =>
-    rules.value.filter((rule) => rule.enabled && rule.tenantId === selectedOrder.value?.tenantId)
+    rules.value.filter(
+      (rule) =>
+        rule.enabled &&
+        rule.tenantId === selectedOrder.value?.tenantId &&
+        (rule.boardThicknessMm == null ||
+          rule.boardThicknessMm === selectedOrder.value?.boardThicknessMm)
+    )
   )
   const suggestedRule = computed(() => {
     const name = selectedOrder.value?.materialNameSnapshot || ''
@@ -567,8 +622,16 @@
       : /聚氨酯|\bPU\b|PIR/i.test(name)
         ? 'PU_BOARD'
         : ''
-    return scopedRules.value.find((rule) => rule.ruleCode === code)
+    return (
+      scopedRules.value.find(
+        (rule) =>
+          rule.ruleCode === code && rule.boardThicknessMm === selectedOrder.value?.boardThicknessMm
+      ) ?? scopedRules.value.find((rule) => rule.ruleCode === code && rule.boardThicknessMm == null)
+    )
   })
+  const selectedRule = computed(() =>
+    scopedRules.value.find((rule) => rule.id === selectedRuleId.value)
+  )
   const remaining = (board: WorkOrderBoard): number => remainingPieces(board, packs.value)
   const packed = (board: WorkOrderBoard): number => board.pieces - remaining(board)
   const packedTotal = computed(() => boards.value.reduce((sum, board) => sum + packed(board), 0))
@@ -661,7 +724,10 @@
     }
     boards.value = []
     packs.value = []
-    selectedRuleId.value = suggestedRule.value?.id || ''
+    selectedRuleId.value =
+      scopedRules.value.find((rule) => rule.id === selectedOrder.value?.packingRuleId)?.id ||
+      suggestedRule.value?.id ||
+      ''
     if (orderId.value) await loadDetails()
   }
   function chooseOrder(id: string): void {
@@ -684,6 +750,7 @@
     void router.push({ name: 'MesWorkOrder' })
   }
   function openSpec(row: Record<string, unknown>): void {
+    if (isPublished.value) return
     if (dirty.value) {
       ElMessage.warning('请先保存当前排包方案，再维护包装参数')
       return
@@ -705,47 +772,92 @@
   }
   function addPieces(board: WorkOrderBoard, pack: PackDraft, amount = remaining(board)): void {
     if (!canManual.value) return
-    if (!board.axis || board.thicknessMm <= 0) {
-      ElMessage.warning(`请先维护板材 ${board.boardNo} 的轴线与成品厚度`)
+    const rule = selectedRule.value
+    if (!rule) {
+      ElMessage.warning('请先选择当前板厚适用的排包规则')
+      return
+    }
+    if (board.thicknessMm <= 0) {
+      ElMessage.warning(`请先在生产工单维护板材 ${board.boardNo} 的板厚`)
       return
     }
     if (amount < 1) return
     const first = boardById(pack.items[0]?.boardId)
-    if (first && (first.area !== board.area || first.axis !== board.axis)) {
-      ElMessage.warning('不同区域或轴线的板材不能排在同一包')
+    if (
+      first &&
+      (first.area !== board.area ||
+        (rule.sameNumber && first.boardNo !== board.boardNo) ||
+        (!rule.allowMixLength && first.lengthMm !== board.lengthMm))
+    ) {
+      ElMessage.warning('所选板材不符合该规则的区域、编号或长度约束')
+      return
+    }
+    if (rule.boardThicknessMm && board.thicknessMm !== rule.boardThicknessMm) {
+      ElMessage.warning('板材板厚与所选排包规则不符')
+      return
+    }
+    if (rule.maxLength && board.lengthMm > rule.maxLength) {
+      ElMessage.warning('板材长度超过所选排包规则上限')
+      return
+    }
+    if (rule.maxWeight && board.unitWeightKg == null) {
+      ElMessage.warning('请先维护板材单块重量')
+      return
+    }
+    const totals = packTotals(pack, boards.value)
+    const capacity = Math.min(
+      amount,
+      rule.maxPieces - totals.pieces,
+      Math.floor((rule.maxStackHeight - totals.stackHeightMm) / board.thicknessMm),
+      rule.maxWeight && board.unitWeightKg
+        ? Math.floor((rule.maxWeight - totals.weightKg) / board.unitWeightKg)
+        : amount
+    )
+    if (capacity < 1) {
+      ElMessage.warning('当前包已达到规则上限，请新建包')
       return
     }
     const item = pack.items.find((entry) => entry.boardId === board.id)
-    if (item) item.pieces += amount
-    else pack.items.push({ boardId: board.id, pieces: amount, remark: '' })
+    if (item) item.pieces += capacity
+    else pack.items.push({ boardId: board.id, pieces: capacity, remark: '' })
     markManual(pack)
+    if (capacity < amount) ElMessage.info(`本包排入 ${capacity} 块，其余可继续新建包`)
   }
   function createPack(): void {
     if (!canManual.value) return
     const rows = selectedBoards.value.filter((board) => remaining(board) > 0)
     if (!rows.length) return
-    if (rows.some((row) => !row.axis || row.thicknessMm <= 0)) {
-      ElMessage.warning('请先维护所选板材的轴线与成品厚度')
+    const rule = selectedRule.value
+    if (!rule) {
+      ElMessage.warning('请先选择当前板厚适用的排包规则')
       return
     }
-    const first = rows[0]
-    if (rows.some((row) => row.area !== first.area || row.axis !== first.axis)) {
-      ElMessage.warning('请选择相同区域和轴线的板材新建包')
+    if (rows.some((row) => row.thicknessMm <= 0)) {
+      ElMessage.warning('请先在生产工单维护所选板材的板厚')
       return
     }
+    const existingNos = new Set(packs.value.map((pack) => pack.packNo))
+    const proposed = suggestPacks(
+      boards.value,
+      packs.value,
+      rule,
+      true,
+      new Set(rows.map((row) => row.id))
+    )
+    const created = proposed.filter((pack) => !existingNos.has(pack.packNo))
+    if (!created.length) {
+      ElMessage.warning('所选明细未生成新包，请核对板厚、重量及规则上限')
+      return
+    }
+    created.forEach((pack) => (pack.manuallyAdjusted = true))
     clearBoardFilter()
-    const pack: PackDraft = {
-      packNo: nextPackNo(),
-      manuallyAdjusted: true,
-      confirmed: false,
-      remark: '',
-      items: []
-    }
-    packs.value.push(pack)
-    const addedPack = packs.value[packs.value.length - 1]
-    rows.forEach((row) => addPieces(row, addedPack))
-    selectedPack.value = addedPack
+    packs.value = proposed
+    selectedPack.value = created[0]
+    dirty.value = true
     boardTableRef.value?.elTableRef?.clearSelection()
+    if (rows.some((row) => remaining(row) > 0))
+      ElMessage.warning('部分明细未能排入，请核对规则上限与包装参数')
+    else ElMessage.success(`已按规则生成 ${created.length} 包，请核对后保存`)
   }
   function mergeSelected(): void {
     if (!canManual.value) return
@@ -789,23 +901,29 @@
   function mergePacks(): void {
     if (!canManual.value || selectedPacks.value.length < 2) return
     const [target, ...sources] = selectedPacks.value
-    const first = boardById(target.items[0]?.boardId)
-    if (
-      sources.some((pack) => {
-        const board = boardById(pack.items[0]?.boardId)
-        return board?.area !== first?.area || board?.axis !== first?.axis
-      })
-    ) {
-      ElMessage.warning('不同区域或轴线的包不能合包')
+    const rule = selectedRule.value
+    if (!rule) {
+      ElMessage.warning('请先选择排包规则')
       return
     }
+    const merged = cloneDeep(target)
     for (const source of sources) {
       for (const item of source.items) {
-        const existing = target.items.find((entry) => entry.boardId === item.boardId)
+        const existing = merged.items.find((entry) => entry.boardId === item.boardId)
         if (existing) existing.pieces += item.pieces
-        else target.items.push({ ...item })
+        else merged.items.push({ ...item })
       }
     }
+    const issue = validatePlan(
+      boards.value,
+      packs.value.filter((pack) => pack !== target && !sources.includes(pack)).concat(merged),
+      rule
+    )
+    if (issue) {
+      ElMessage.warning(issue)
+      return
+    }
+    target.items = merged.items
     packs.value = packs.value.filter((pack) => !sources.includes(pack))
     selectedPacks.value = []
     selectedPackItems.value = []
@@ -860,14 +978,14 @@
     markManual(source)
   }
   async function autoPack(): Promise<void> {
-    if (!hasAuth('MesPacking:Auto')) return
-    const rule = scopedRules.value.find((item) => item.id === selectedRuleId.value)
+    if (!hasAuth('MesPacking:Auto') || isPublished.value) return
+    const rule = selectedRule.value
     if (!rule) {
       ElMessage.warning('当前租户尚未启用板材排包规则')
       return
     }
-    if (boards.value.some((board) => !board.axis || board.thicknessMm <= 0)) {
-      ElMessage.warning('请先维护板材的轴线和成品厚度')
+    if (boards.value.some((board) => board.thicknessMm <= 0)) {
+      ElMessage.warning('请先在生产工单专用参数中维护板厚')
       return
     }
     let preserveManual = true
@@ -893,16 +1011,81 @@
     else ElMessage.success('自动方案已生成，请核对后保存')
   }
   async function save(): Promise<void> {
-    if (!selectedOrder.value || busy.value || !hasAuth('MesPacking:Save')) return
-    const issue = validatePlan(boards.value, packs.value)
+    if (
+      !selectedOrder.value ||
+      busy.value ||
+      isPublished.value ||
+      !hasAuth('MesPacking:Save') ||
+      (!dirty.value && !needsRuleBinding.value)
+    )
+      return
+    const rule = selectedRule.value
+    if (!rule) {
+      ElMessage.warning('请先选择排包规则')
+      return
+    }
+    const issue = validatePlan(boards.value, packs.value, rule)
     if (issue) {
       ElMessage.warning(issue)
       return
     }
     busy.value = true
     try {
-      await savePackingPlan(orderId.value, packs.value, revision.value)
+      await savePackingPlan(orderId.value, packs.value, revision.value, rule.id)
       ElMessage.success('排包单已保存')
+      await loadOrders()
+      await loadDetails()
+    } catch {
+      /* API boundary displays the business error. */
+    } finally {
+      busy.value = false
+    }
+  }
+  async function publish(): Promise<void> {
+    if (
+      !selectedOrder.value ||
+      !hasAuth('MesPacking:Publish') ||
+      busy.value ||
+      dirty.value ||
+      isPublished.value ||
+      !selectedOrder.value.packingRuleId ||
+      needsRuleBinding.value ||
+      !packs.value.length
+    )
+      return
+    try {
+      await confirm('发布后排包明细将锁定；需要修改时可使用“重排包”。是否发布？', {
+        title: '发布排包单'
+      })
+    } catch {
+      return
+    }
+    busy.value = true
+    try {
+      await setPackingPublication(orderId.value, revision.value, true)
+      ElMessage.success('排包单已发布')
+      await loadOrders()
+      await loadDetails()
+    } catch {
+      /* API boundary displays the business error. */
+    } finally {
+      busy.value = false
+    }
+  }
+  async function repack(): Promise<void> {
+    if (!selectedOrder.value || !hasAuth('MesPacking:Repack') || busy.value || !isPublished.value)
+      return
+    try {
+      await confirm('重排包后恢复编辑，已保存的排包明细会保留。是否继续？', {
+        title: '重排包'
+      })
+    } catch {
+      return
+    }
+    busy.value = true
+    try {
+      await setPackingPublication(orderId.value, revision.value, false)
+      ElMessage.success('已恢复排包编辑')
       await loadOrders()
       await loadDetails()
     } catch {

@@ -182,7 +182,7 @@
   const summaryDescription = computed(() =>
     mode.value === 'bom'
       ? '展示工单保存时集成的装配层 BOM；虚拟件自动穿透到下一层，未配置组件工序时默认分配到第一道工序。'
-      : '展示工单保存时集成的完整工艺路线与工序参数；生产工序任务只会在工单确认后生成。'
+      : '展示工单保存时集成的完整工艺路线与工序参数；生产工序任务只会在工单下达后生成。'
   )
   const bomSubtitle = computed(() =>
     bom.value

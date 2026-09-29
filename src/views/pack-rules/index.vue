@@ -4,7 +4,7 @@
       <BusinessWorkspaceHeader
         eyebrow="PACKING POLICY"
         title="排包规则"
-        description="按板材成品类型配置装包上限、混包条件与尾数处理，供自动排包生成初始方案。"
+        description="按板材类型和板厚配置装包上限、同编号约束与尾数处理，供排包单生成方案。"
         icon="ri:archive-stack-line"
         :metrics="metrics"
         density="compact"
@@ -57,6 +57,13 @@
               <div
                 ><dt>堆叠上限</dt><dd>{{ rule.maxStackHeight }} <small>mm</small></dd></div
               >
+              <div
+                ><dt>适用板厚</dt
+                ><dd
+                  >{{ rule.boardThicknessMm ?? '通用' }}
+                  <small v-if="rule.boardThicknessMm">mm</small></dd
+                ></div
+              >
               <div v-if="rule.maxWeight"
                 ><dt>重量上限</dt><dd>{{ rule.maxWeight }} <small>kg</small></dd></div
               >
@@ -69,7 +76,8 @@
               <div
                 ><span>聚合方式</span
                 ><strong
-                  >同区域、同轴线{{ rule.sameWidth ? '，同宽优先' : ''
+                  >同区域{{ rule.sameNumber ? '、同编号' : ''
+                  }}{{ rule.sameWidth ? '，同宽优先' : ''
                   }}{{ rule.allowMixLength ? '，允许混长' : '，不可混长' }}</strong
                 ></div
               >
@@ -176,17 +184,17 @@
     gap: var(--art-space-4);
     min-width: 0;
     padding: var(--art-space-4);
+    background: var(--default-box-color);
     border: 1px solid var(--el-border-color-light);
     border-radius: var(--custom-radius);
-    background: var(--default-box-color);
   }
 
   .pack-rules-page__rule-head,
   .pack-rules-page__rule-identity,
   .pack-rules-page__rule-foot {
     display: flex;
-    align-items: center;
     gap: var(--art-space-3);
+    align-items: center;
     min-width: 0;
   }
 
@@ -201,10 +209,10 @@
 
   .pack-rules-page__rule-icon {
     display: grid;
-    width: 36px;
-    height: 36px;
     flex: none;
     place-items: center;
+    width: 36px;
+    height: 36px;
     color: var(--theme-color);
     background: color-mix(in srgb, var(--theme-color) 10%, var(--default-box-color));
     border-radius: var(--art-control-radius);
@@ -212,17 +220,17 @@
 
   .pack-rules-page__rule-identity h2 {
     margin: 0;
-    color: var(--el-text-color-primary);
     font-size: 15px;
     font-weight: 600;
     line-height: 1.5;
+    color: var(--el-text-color-primary);
     overflow-wrap: anywhere;
   }
 
   .pack-rules-page__rule-identity p {
     margin: 2px 0 0;
-    color: var(--el-text-color-secondary);
     font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 
   .pack-rules-page__limits {
@@ -241,20 +249,24 @@
     background: var(--art-gray-100);
   }
 
+  .pack-rules-page__limits > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .pack-rules-page__limits dt,
   .pack-rules-page__policy span,
   .pack-rules-page__rule-foot > span {
-    color: var(--el-text-color-secondary);
     font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 
   .pack-rules-page__limits dd {
     margin: 3px 0 0;
-    color: var(--el-text-color-primary);
     font-size: 22px;
-    font-variant-numeric: tabular-nums;
     font-weight: 650;
+    font-variant-numeric: tabular-nums;
     line-height: 1.2;
+    color: var(--el-text-color-primary);
   }
 
   .pack-rules-page__limits small {
@@ -275,10 +287,10 @@
   }
 
   .pack-rules-page__policy strong {
-    color: var(--el-text-color-regular);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.5;
+    color: var(--el-text-color-regular);
   }
 
   .pack-rules-page__rule-foot {

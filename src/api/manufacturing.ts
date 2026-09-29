@@ -160,6 +160,30 @@ export async function transitionWorkOrder(id: string, action: string) {
   return data
 }
 
+export interface MesWorkOrderReleaseWarning {
+  id: string
+  workOrderNo: string
+  warnings: string[]
+}
+
+export async function fetchWorkOrderReleaseWarnings(
+  ids: string[]
+): Promise<MesWorkOrderReleaseWarning[]> {
+  const warnings: MesWorkOrderReleaseWarning[] = []
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const { data } = await responseHandle<MesWorkOrderReleaseWarning[]>(
+      () =>
+        supabase.rpc('mes_work_order_release_warnings', { p_ids: ids.slice(offset, offset + 100) }),
+      {
+        ...readOptions,
+        errorMessage: '下达前检查失败，请刷新工单后重试'
+      }
+    )
+    warnings.push(...(data ?? []))
+  }
+  return warnings
+}
+
 export async function reloadWorkOrderSnapshot(id: string) {
   const { data } = await responseHandle<{
     id: string
@@ -731,7 +755,7 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
 
   let documentTypeQuery = supabase
     .from('mdm_document_type')
-    .select('id,extension_fields,project_required')
+    .select('id,extension_fields,packing_enabled,packing_thickness_field_key,project_required')
     .eq('menu_id', 'e1000000-0000-4000-8000-000000000002')
   if (tenantId) documentTypeQuery = documentTypeQuery.eq('tenant_id', tenantId)
   const [referenceResult, customerResult, documentTypeResult] = await Promise.all([
@@ -747,6 +771,8 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
       Array<{
         id: string
         extensionFields: MesReferenceOption['extensionFields']
+        packingEnabled: boolean
+        packingThicknessFieldKey: string | null
         projectRequired: boolean
       }>
     >(() => documentTypeQuery, { ...readOptions, showErrorMessage: false })
@@ -761,6 +787,8 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
       .map((row) => ({
         ...row,
         extensionFields: settingsById.get(row.id)?.extensionFields ?? [],
+        packingEnabled: settingsById.get(row.id)?.packingEnabled ?? false,
+        packingThicknessFieldKey: settingsById.get(row.id)?.packingThicknessFieldKey ?? null,
         projectRequired: settingsById.get(row.id)?.projectRequired ?? false
       })),
     employees: referenceResult.data?.employees ?? [],

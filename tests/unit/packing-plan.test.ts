@@ -16,13 +16,15 @@ const rule: PackRule = {
   enabled: true,
   maxPieces: 8,
   maxStackHeight: 600,
+  boardThicknessMm: null,
   maxWeight: null,
   maxLength: null,
   sameWidth: true,
   sameArea: true,
+  sameNumber: true,
   allowMixLength: false,
   remainderPolicy: 'separate',
-  sortPriority: 'area,width,length,boardNo',
+  sortPriority: 'area,boardNo,width,length',
   remark: '',
   updateTime: ''
 }
@@ -71,7 +73,7 @@ test('自动排包按块数和堆叠高度拆包，并保留人工调整的数�
   assert.equal(remainingPieces(boards[0], packs), 0)
 })
 
-test('不同区域或轴线不能混包，超排会被拒绝', () => {
+test('同编号规则拒绝不同编号混包，超排会被拒绝', () => {
   const boards = [board('a', 2), board('b', 2, '一区', 'B轴')]
   const mixed = [
     {
@@ -85,18 +87,59 @@ test('不同区域或轴线不能混包，超排会被拒绝', () => {
       ]
     }
   ]
-  assert.match(validatePlan(boards, mixed) || '', /不同区域或轴线/)
+  assert.match(validatePlan(boards, mixed, rule) || '', /不同编号/)
   mixed[0].items.pop()
   mixed[0].items[0].pieces = 3
-  assert.match(validatePlan(boards, mixed) || '', /超出工单块数/)
+  assert.match(validatePlan(boards, mixed, rule) || '', /超出工单块数/)
 })
 
 test('尾数独立小包不会并入下一行板材，合并策略可以共包', () => {
   const boards = [board('a', 2), board('b', 2)]
   const limits = { ...rule, maxStackHeight: 1000 }
   const separate = suggestPacks(boards, [], limits, true)
-  const merged = suggestPacks(boards, [], { ...limits, remainderPolicy: 'merge' }, true)
+  const merged = suggestPacks(
+    boards,
+    [],
+    { ...limits, sameNumber: false, remainderPolicy: 'merge' },
+    true
+  )
   assert.equal(separate.length, 2)
   assert.equal(merged.length, 1)
   assert.equal(merged[0].items.length, 2)
+})
+
+test('手动排包仅处理所选明细，按规则块数与堆叠上限拆分', () => {
+  const boards = [board('a', 10), board('b', 4)]
+  const existing = [
+    {
+      packNo: 'HAND-1',
+      manuallyAdjusted: true,
+      confirmed: false,
+      remark: '',
+      items: [{ boardId: 'b', pieces: 2, remark: '' }]
+    }
+  ]
+  const packs = suggestPacks(boards, existing, { ...rule, maxPieces: 5 }, true, new Set(['a']))
+  assert.equal(remainingPieces(boards[0], packs), 0)
+  assert.equal(remainingPieces(boards[1], packs), 2)
+  assert.ok(packs.every((pack) => packTotals(pack, boards).pieces <= 5))
+})
+
+test('同编号关闭时允许同区域不同编号，板厚条件仍生效', () => {
+  const boards = [board('a', 2), board('b', 2)]
+  const mixed = [
+    {
+      packNo: 'P1',
+      manuallyAdjusted: false,
+      confirmed: false,
+      remark: '',
+      items: [
+        { boardId: 'a', pieces: 2, remark: '' },
+        { boardId: 'b', pieces: 2, remark: '' }
+      ]
+    }
+  ]
+  const flexible = { ...rule, sameNumber: false, maxStackHeight: 1000 }
+  assert.equal(validatePlan(boards, mixed, flexible), null)
+  assert.match(validatePlan(boards, mixed, { ...flexible, boardThicknessMm: 50 }) || '', /板厚/)
 })

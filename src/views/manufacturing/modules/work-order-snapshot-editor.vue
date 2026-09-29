@@ -5,7 +5,7 @@
         icon="ri:edit-box-line"
         eyebrow="WORK ORDER ONLY"
         :title="row?.workOrderNo || '生产工单'"
-        description="修改仅写入当前工单的生产资料快照；确认工单后不可继续修改。"
+        description="修改仅写入当前工单的生产资料快照；工单下达后不可继续修改。"
       />
       <ArtForm
         ref="formRef"

@@ -19,7 +19,11 @@
         :tenant-options="tenantOptions"
       />
       <ArtSectionCard
-        v-if="readonly && detailRecord?.extensionSchemaSnapshot?.length"
+        v-if="
+          readonly &&
+          detailRecord?.packingEnabledSnapshot &&
+          detailRecord.extensionSchemaSnapshot?.length
+        "
         title="工单专用参数"
         subtitle="按创建或最近编辑时的单据类型配置固化。"
         class="mb-4"
@@ -74,6 +78,22 @@
         </template>
         <template #urgency>
           <WorkOrderUrgencySegmented v-model="model.urgency" :disabled="locked" />
+        </template>
+        <template #orderQuantity>
+          <div class="flex min-w-0 items-center gap-2">
+            <ElInputNumber
+              v-model="model.orderQuantity"
+              class="min-w-0 flex-1"
+              :min="0.01"
+              :precision="2"
+              :disabled="locked"
+              aria-label="工单数量"
+              @change="quantityOverridden = true"
+            />
+            <ElButton :disabled="locked || !detailRows.length" @click="resetQuantityFromDetails">
+              按面积重算
+            </ElButton>
+          </div>
         </template>
         <template #merchandiserId
           ><ArtEmployeeSelect
@@ -204,6 +224,11 @@
   const detailRecord = ref<MesWorkOrder>()
   const detailsRef = ref<InstanceType<typeof WorkOrderDetails>>()
   const detailRows = ref<WorkOrderDetailDraft[]>([])
+  const quantityOverridden = ref(false)
+  const initializing = ref(false)
+  const detailAreaTotal = computed(() =>
+    Number(detailRows.value.reduce((total, row) => total + Number(row.areaSqm || 0), 0).toFixed(2))
+  )
   const extensionValues = reactive<WorkOrderExtensionValues>({})
   let bomOptionsRequestId = 0
   const model = reactive<WorkOrderFormModel>({
@@ -261,11 +286,19 @@
       references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
         ?.projectRequired ?? false
   )
-  const activeExtensionFields = computed<WorkOrderExtensionField[]>(
-    () =>
-      references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
-        ?.extensionFields ?? []
-  )
+  const activeExtensionFields = computed<WorkOrderExtensionField[]>(() => {
+    const type = references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
+    return type?.packingEnabled ? (type.extensionFields ?? []) : []
+  })
+  watch(detailAreaTotal, (total) => {
+    if (!initializing.value && !quantityOverridden.value && detailRows.value.length) {
+      model.orderQuantity = total
+    }
+  })
+  function resetQuantityFromDetails(): void {
+    model.orderQuantity = detailAreaTotal.value
+    quantityOverridden.value = false
+  }
   const extensionDisplayValue = (field: WorkOrderExtensionField, value: unknown) => {
     if (value === null || value === undefined || value === '') return '—'
     if (field.valueType !== 'material') return String(value)
@@ -367,11 +400,13 @@
         filterable: true,
         onChange: handleProjectChange
       },
-      help: projectRequired.value ? '工程项目工单必须指定项目及施工号。' : '非项目工单可留空。'
+      help: projectRequired.value
+        ? '工程项目工单必须指定项目；施工号可选填。'
+        : '非项目工单可留空。'
     },
     {
       key: 'constructionNo',
-      label: projectRequired.value ? '施工号 *' : '施工号',
+      label: '施工号',
       type: 'select',
       options: projectSections.value.map((section) => ({
         label: `${section.constructionNo} · ${section.sectionName}`,
@@ -384,7 +419,9 @@
         filterable: true,
         placeholder: model.projectId ? '选择项目施工号' : '请先选择项目'
       },
-      help: model.projectId ? '仅可选择当前项目已启用的施工号。' : '普通非项目工单无需施工号。'
+      help: model.projectId
+        ? '可选填当前项目已启用的施工号；下达时空值仅提醒。'
+        : '关联项目后可选填施工号。'
     },
     { key: 'plan', label: '产品与计划', type: 'divider', span: 24 },
     {
@@ -412,8 +449,9 @@
     {
       key: 'orderQuantity',
       label: '工单数量',
-      type: 'number',
-      props: { disabled: locked.value, min: 0.01, precision: 2, class: '!w-full' }
+      type: 'slot',
+      span: 24,
+      help: `按生产单明细面积自动汇总，当前合计 ${detailAreaTotal.value.toFixed(2)} ㎡；可手动修改。`
     },
     {
       key: 'productionDays',
@@ -737,6 +775,7 @@
     }
   }
   const handleOpen = async (data: WorkOrderDialogOpenData) => {
+    initializing.value = true
     bomOptionsRequestId++
     projectSections.value = []
     detailRows.value.splice(
@@ -834,6 +873,11 @@
             salesOrderQuantity: null
           }
     )
+    quantityOverridden.value = Boolean(
+      data.row && Math.abs(Number(data.row.orderQuantity) - detailAreaTotal.value) > 0.01
+    )
+    if (!data.row && detailRows.value.length) resetQuantityFromDetails()
+    initializing.value = false
     if (selectedMaterial.value) applyMaterial(selectedMaterial.value, false, false)
     await dialogRef.value?.handleOpen(data, {
       title: heading.value,
@@ -872,12 +916,8 @@
       onConfirm: async () => {
         try {
           await formRef.value?.validate()
-          if (projectRequired.value && (!model.projectId || !model.constructionNo)) {
-            ElMessage.warning('工程项目工单必须选择项目和施工号')
-            return false
-          }
-          if (model.projectId && !model.constructionNo) {
-            ElMessage.warning('项目工单必须选择施工号')
+          if (projectRequired.value && !model.projectId) {
+            ElMessage.warning('工程项目工单必须选择项目')
             return false
           }
           if (!detailsRef.value?.validate()) return false

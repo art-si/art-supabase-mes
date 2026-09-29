@@ -171,6 +171,7 @@
     batchTransitionOperationTasks,
     batchTransitionWorkOrders,
     copyWorkOrders,
+    fetchWorkOrderReleaseWarnings,
     fetchMesReferences,
     fetchOperationTaskScope,
     fetchOperationTasks,
@@ -252,13 +253,13 @@
   const icon = computed(() => (isWorkOrder.value ? 'ri:file-list-3-line' : 'ri:git-merge-line'))
   const description = computed(() =>
     isWorkOrder.value
-      ? '统一创建、确认和跟踪生产工单，保存时集成 BOM 与工艺路线执行基线。'
-      : '承接已确认生产工单的工序明细，统一管理排产、执行、质量回填与结案。'
+      ? '统一创建、下达和跟踪生产工单，保存时集成 BOM 与工艺路线执行基线。'
+      : '承接已下达生产工单的工序明细，统一管理排产、执行、质量回填与结案。'
   )
   const emptyDescription = computed(() =>
     isWorkOrder.value
       ? '点击新增工单，建立第一条生产计划。'
-      : '确认带有完整工艺路线的工单后，将自动生成工序任务。'
+      : '下达带有完整工艺路线的工单后，将自动生成工序任务。'
   )
   const tableRef = ref<ArtTableQueryExpose>()
   const userStore = useUserStore()
@@ -363,12 +364,12 @@
     {
       label: isWorkOrder.value ? '待处理' : '待排产',
       value: overview.attention,
-      description: isWorkOrder.value ? '待确认与异常工单' : '尚未分配工作中心',
+      description: isWorkOrder.value ? '待下达与异常工单' : '尚未分配工作中心',
       icon: 'ri:alarm-warning-line',
       tone: overview.attention ? 'warning' : 'success'
     },
     {
-      label: isWorkOrder.value ? '已确认' : '已排产',
+      label: isWorkOrder.value ? '已下达' : '已排产',
       value: overview.ready,
       description: '可进入后续生产执行',
       icon: 'ri:checkbox-circle-line',
@@ -390,9 +391,9 @@
     string,
     { label: string; type: 'info' | 'primary' | 'success' | 'warning' | 'danger' }
   > = {
-    pending: { label: '待确认', type: 'info' },
+    pending: { label: '待下达', type: 'info' },
     abnormal: { label: '异常', type: 'danger' },
-    confirmed: { label: '已确认', type: 'success' },
+    confirmed: { label: '已下达', type: 'success' },
     closed: { label: '已结案', type: 'info' },
     unscheduled: { label: '未排程', type: 'warning' },
     scheduled: { label: '已排程', type: 'primary' },
@@ -718,7 +719,7 @@
           confirm: true,
           confirmTitle: '批量参考',
           content: ({ selectedCount }: ArtTableQueryHeaderActionContext) =>
-            `将参照 ${selectedCount} 张工单创建新的待确认工单，是否继续？`,
+            `将参照 ${selectedCount} 张工单创建新的待下达工单，是否继续？`,
           buttonProps: commonButtonProps,
           onClick: ({ selectedRows }) =>
             handleBatchCommand('reference', selectedRows as MesWorkOrder[])
@@ -748,16 +749,12 @@
         },
         {
           key: 'confirm',
-          label: '批量确认',
+          label: '批量下达',
           icon: 'ri:checkbox-circle-line',
           permission: 'MesWorkOrder:Confirm',
           selectionRequired: true,
           hidden: isCrossTenantReadOnly.value,
           disabled: batchBusy.value,
-          confirm: true,
-          confirmTitle: '批量确认',
-          content: ({ selectedCount }: ArtTableQueryHeaderActionContext) =>
-            `将确认 ${selectedCount} 张工单，并为成功确认的工单生成工序任务，是否继续？`,
           buttonProps: { type: 'primary', ...commonButtonProps },
           onClick: ({ selectedRows }) =>
             handleBatchCommand('confirm', selectedRows as MesWorkOrder[])
@@ -871,6 +868,13 @@
       showOverflowTooltip: true
     },
     {
+      prop: 'status',
+      label: '工单状态',
+      width: 100,
+      align: 'center',
+      formatter: (row) => statusTag(row.orderStatus)
+    },
+    {
       prop: 'workOrderTypeNameSnapshot',
       label: '工单类型',
       minWidth: 138,
@@ -973,13 +977,6 @@
             )}
         </BusinessTableRowActions>
       )
-    },
-    {
-      prop: 'status',
-      label: '工单状态',
-      width: 100,
-      align: 'center',
-      formatter: (row) => statusTag(row.orderStatus)
     },
     {
       prop: 'statusReason',
@@ -1324,7 +1321,7 @@
         ? [
             {
               key: 'confirm',
-              label: row.confirmedAt ? '恢复下达' : '确认工单',
+              label: '下达',
               icon: 'ri:checkbox-circle-line',
               auth: 'MesWorkOrder:Confirm'
             }
@@ -1581,6 +1578,35 @@
     if (successCount) ElMessage.warning(message)
     else ElMessage.error(message)
   }
+  async function confirmRelease(rows: MesWorkOrder[]): Promise<boolean> {
+    try {
+      const warnings = await fetchWorkOrderReleaseWarnings(rows.map((row) => row.id))
+      const lines = warnings.flatMap((item) =>
+        item.warnings.map((warning) => `${item.workOrderNo}：${warning}`)
+      )
+      const summary = lines.length ? (
+        <div>
+          <p>发现 {warnings.length} 张工单存在提醒：</p>
+          <ul style={{ maxHeight: '35vh', overflowY: 'auto', paddingLeft: '1.25rem' }}>
+            {lines.slice(0, 6).map((line, index) => (
+              <li key={`${index}-${line}`}>{line}</li>
+            ))}
+          </ul>
+          {lines.length > 6 && <p>另有 {lines.length - 6} 条提醒。</p>}
+          <p>缺料与空施工号不会阻止下达，是否继续？</p>
+        </div>
+      ) : (
+        `将下达 ${rows.length} 张工单，并生成对应工序任务，是否继续？`
+      )
+      await confirmAction(summary, rows.length > 1 ? '批量下达' : '下达工单', {
+        confirmButtonText: rows.length > 1 ? '批量下达' : '下达',
+        type: lines.length ? 'warning' : 'info'
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
   async function printWorkOrders(rows: MesWorkOrder[]): Promise<void> {
     const result = await batchTransitionWorkOrders(
       rows.map((row) => row.id),
@@ -1604,7 +1630,7 @@
   }
   async function handleReloadSnapshot(row: MesWorkOrder): Promise<void> {
     await confirmAction(
-      `将使用当前最新版本覆盖工单“${row.workOrderNo}”的 BOM 与工艺路线快照。仅待确认或异常工单可重读，工单确认后将保持执行基线。是否继续？`,
+      `将使用当前最新版本覆盖工单“${row.workOrderNo}”的 BOM 与工艺路线快照。仅待下达或异常工单可重读，工单下达后将保持执行基线。是否继续？`,
       '重读 BOM/工艺',
       { confirmButtonText: '确认重读', type: 'warning' }
     )
@@ -1635,6 +1661,7 @@
       } else if (command === 'print-qr') {
         await printWorkOrderQrLabels(rows)
       } else {
+        if (command === 'confirm' && !(await confirmRelease(rows))) return
         const result =
           command === 'reference'
             ? await copyWorkOrders(rows.map((row) => row.id))
@@ -1646,7 +1673,7 @@
           result,
           {
             reference: '批量参考',
-            confirm: '批量确认',
+            confirm: '批量下达',
             close: '批量结案',
             delete: '批量删除'
           }[command] || '批量操作'
@@ -1756,6 +1783,7 @@
     }
     if (action === 'delete')
       await confirmDelete(`确定删除工单“${row.workOrderNo}”吗？30 天内可恢复。`)
+    if (action === 'confirm' && !(await confirmRelease([row]))) return
     await transitionWorkOrder(row.id, action)
     await tableRef.value?.refreshData()
   }
