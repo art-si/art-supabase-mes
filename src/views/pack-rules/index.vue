@@ -1,103 +1,105 @@
 <template>
   <ArtPermissionGuard permission="MesPackRule:View" resource-name="排包规则">
-    <div class="pack-rules-page business-workspace-page art-full-height">
-      <BusinessWorkspaceHeader
-        eyebrow="PACKING POLICY"
-        title="排包规则"
-        description="按板材类型和板厚配置装包上限、同编号约束与尾数处理，供排包单生成方案。"
-        icon="ri:archive-stack-line"
-        :metrics="metrics"
-        density="compact"
-        refreshable
-        :refresh-loading="loading"
-        @refresh="load"
-      >
-        <template #actions>
-          <ElButton v-auth="'MesPackRule:Add'" type="primary" @click="open()">
-            <ArtSvgIcon icon="ri:add-line" />新增规则
-          </ElButton>
-        </template>
-      </BusinessWorkspaceHeader>
-      <ArtSectionCard
-        title="按成品类型配置"
-        subtitle="自动排包读取当前启用的规则；已保存的包和人工调整不会因修改规则而变化。"
-        :loading="loading"
-        :error="error"
-        :empty="!loading && !error && !rules.length"
-        empty-title="尚未配置排包规则"
-        empty-description="先按岩棉板、聚氨酯板分别配置规则，再到排包单生成方案。"
-        @retry="load"
-      >
-        <div class="pack-rules-page__grid">
-          <article v-for="rule in rules" :key="rule.id" class="pack-rules-page__rule">
-            <header class="pack-rules-page__rule-head">
-              <div class="pack-rules-page__rule-identity">
-                <span class="pack-rules-page__rule-icon" aria-hidden="true">
-                  <ArtSvgIcon icon="ri:stack-line" />
-                </span>
-                <div class="min-w-0">
-                  <h2>{{ rule.ruleName }}</h2>
-                  <p>
-                    {{ rule.ruleCode === 'ROCK_BOARD' ? '岩棉夹芯板' : '聚氨酯夹芯板' }}
-                    <template v-if="!effectiveTenantId">
-                      · {{ tenantLabel(rule.tenantId) }}</template
-                    >
-                  </p>
+    <ElScrollbar class="pack-rules-page-scrollbar art-full-height">
+      <div class="pack-rules-page business-workspace-page">
+        <BusinessWorkspaceHeader
+          eyebrow="PACKING POLICY"
+          title="排包规则"
+          description="按板材类型和板厚配置装包上限、同编号约束与尾数处理，供排包单生成方案。"
+          icon="ri:archive-stack-line"
+          :metrics="metrics"
+          density="compact"
+          refreshable
+          :refresh-loading="loading"
+          @refresh="load"
+        >
+          <template #actions>
+            <ElButton v-auth="'MesPackRule:Add'" type="primary" @click="open()">
+              <ArtSvgIcon icon="ri:add-line" />新增规则
+            </ElButton>
+          </template>
+        </BusinessWorkspaceHeader>
+        <ArtSectionCard
+          title="按成品类型配置"
+          subtitle="自动排包读取当前启用的规则；已保存的包和人工调整不会因修改规则而变化。"
+          :loading="loading"
+          :error="error"
+          :empty="!loading && !error && !rules.length"
+          empty-title="尚未配置排包规则"
+          empty-description="先按岩棉板、聚氨酯板分别配置规则，再到排包单生成方案。"
+          @retry="load"
+        >
+          <div class="pack-rules-page__grid">
+            <article v-for="rule in rules" :key="rule.id" class="pack-rules-page__rule">
+              <header class="pack-rules-page__rule-head">
+                <div class="pack-rules-page__rule-identity">
+                  <span class="pack-rules-page__rule-icon" aria-hidden="true">
+                    <ArtSvgIcon icon="ri:stack-line" />
+                  </span>
+                  <div class="min-w-0">
+                    <h2>{{ rule.ruleName }}</h2>
+                    <p>
+                      {{ rule.ruleCode === 'ROCK_BOARD' ? '岩棉夹芯板' : '聚氨酯夹芯板' }}
+                      <template v-if="!effectiveTenantId">
+                        · {{ tenantLabel(rule.tenantId) }}</template
+                      >
+                    </p>
+                  </div>
                 </div>
+                <ElTag :type="rule.enabled ? 'success' : 'info'" effect="plain">
+                  {{ rule.enabled ? '启用中' : '已停用' }}
+                </ElTag>
+              </header>
+
+              <dl class="pack-rules-page__limits">
+                <div
+                  ><dt>单包最多</dt><dd>{{ rule.maxPieces }} <small>块</small></dd></div
+                >
+                <div
+                  ><dt>堆叠上限</dt><dd>{{ rule.maxStackHeight }} <small>mm</small></dd></div
+                >
+                <div
+                  ><dt>适用板厚</dt
+                  ><dd
+                    >{{ rule.boardThicknessMm ?? '通用' }}
+                    <small v-if="rule.boardThicknessMm">mm</small></dd
+                  ></div
+                >
+                <div v-if="rule.maxWeight"
+                  ><dt>重量上限</dt><dd>{{ rule.maxWeight }} <small>kg</small></dd></div
+                >
+                <div v-if="rule.maxLength"
+                  ><dt>板材最长</dt><dd>{{ rule.maxLength }} <small>mm</small></dd></div
+                >
+              </dl>
+
+              <div class="pack-rules-page__policy">
+                <div
+                  ><span>聚合方式</span
+                  ><strong
+                    >同区域{{ rule.sameNumber ? '、同编号' : ''
+                    }}{{ rule.sameWidth ? '，同宽优先' : ''
+                    }}{{ rule.allowMixLength ? '，允许混长' : '，不可混长' }}</strong
+                  ></div
+                >
+                <div
+                  ><span>尾数处理</span
+                  ><strong>{{ remainderLabel(rule.remainderPolicy) }}</strong></div
+                >
               </div>
-              <ElTag :type="rule.enabled ? 'success' : 'info'" effect="plain">
-                {{ rule.enabled ? '启用中' : '已停用' }}
-              </ElTag>
-            </header>
 
-            <dl class="pack-rules-page__limits">
-              <div
-                ><dt>单包最多</dt><dd>{{ rule.maxPieces }} <small>块</small></dd></div
-              >
-              <div
-                ><dt>堆叠上限</dt><dd>{{ rule.maxStackHeight }} <small>mm</small></dd></div
-              >
-              <div
-                ><dt>适用板厚</dt
-                ><dd
-                  >{{ rule.boardThicknessMm ?? '通用' }}
-                  <small v-if="rule.boardThicknessMm">mm</small></dd
-                ></div
-              >
-              <div v-if="rule.maxWeight"
-                ><dt>重量上限</dt><dd>{{ rule.maxWeight }} <small>kg</small></dd></div
-              >
-              <div v-if="rule.maxLength"
-                ><dt>板材最长</dt><dd>{{ rule.maxLength }} <small>mm</small></dd></div
-              >
-            </dl>
-
-            <div class="pack-rules-page__policy">
-              <div
-                ><span>聚合方式</span
-                ><strong
-                  >同区域{{ rule.sameNumber ? '、同编号' : ''
-                  }}{{ rule.sameWidth ? '，同宽优先' : ''
-                  }}{{ rule.allowMixLength ? '，允许混长' : '，不可混长' }}</strong
-                ></div
-              >
-              <div
-                ><span>尾数处理</span
-                ><strong>{{ remainderLabel(rule.remainderPolicy) }}</strong></div
-              >
-            </div>
-
-            <footer class="pack-rules-page__rule-foot">
-              <span>更新于 {{ dayjs(rule.updateTime).format('YYYY-MM-DD HH:mm') }}</span>
-              <ElButton v-auth="'MesPackRule:Edit'" link type="primary" @click="open(rule)">
-                编辑规则 <ArtSvgIcon icon="ri:arrow-right-s-line" />
-              </ElButton>
-            </footer>
-          </article>
-        </div>
-      </ArtSectionCard>
-      <PackRuleDialog ref="dialogRef" @success="load" />
-    </div>
+              <footer class="pack-rules-page__rule-foot">
+                <span>更新于 {{ dayjs(rule.updateTime).format('YYYY-MM-DD HH:mm') }}</span>
+                <ElButton v-auth="'MesPackRule:Edit'" link type="primary" @click="open(rule)">
+                  编辑规则 <ArtSvgIcon icon="ri:arrow-right-s-line" />
+                </ElButton>
+              </footer>
+            </article>
+          </div>
+        </ArtSectionCard>
+        <PackRuleDialog ref="dialogRef" @success="load" />
+      </div>
+    </ElScrollbar>
   </ArtPermissionGuard>
 </template>
 
@@ -168,9 +170,13 @@
 </script>
 
 <style scoped lang="scss">
+  .pack-rules-page-scrollbar {
+    height: 100%;
+  }
+
   .pack-rules-page {
     min-width: 0;
-    overflow: auto;
+    min-height: 100%;
   }
 
   .pack-rules-page__grid {

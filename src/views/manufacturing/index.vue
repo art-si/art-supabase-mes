@@ -1602,7 +1602,7 @@
       const summary = lines.length ? (
         <div>
           <p>发现 {warnings.length} 张工单存在提醒：</p>
-          <ul style={{ maxHeight: '35vh', overflowY: 'auto', paddingLeft: '1.25rem' }}>
+          <ul style={{ paddingLeft: '1.25rem' }}>
             {lines.slice(0, 6).map((line, index) => (
               <li key={`${index}-${line}`}>{line}</li>
             ))}

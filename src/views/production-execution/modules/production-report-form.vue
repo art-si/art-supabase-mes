@@ -225,6 +225,8 @@
           <ElFormItem v-if="!editingReport" label="现场附件" class="report-form__wide">
             <ArtUploadFile
               v-model="form.media"
+              :resource-tenant-id="task?.tenantId || ''"
+              :disabled="!task?.tenantId"
               multiple
               :limit="10"
               title="上传报工附件"
