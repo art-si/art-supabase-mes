@@ -1,0 +1,1 @@
+import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-B53NdkV7.js";import{t as r}from"./execution-event-workspace-s_z-ROxz.js";var i=e({name:`MesMiscReport`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{mode:`misc_report`}))}});export{i as default};

@@ -753,12 +753,7 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
     .order('customer_name')
   if (tenantId) customerQuery = customerQuery.eq('tenant_id', tenantId)
 
-  let documentTypeQuery = supabase
-    .from('mdm_document_type')
-    .select('id,extension_fields,packing_enabled,packing_thickness_field_key,project_required')
-    .eq('menu_id', 'e1000000-0000-4000-8000-000000000002')
-  if (tenantId) documentTypeQuery = documentTypeQuery.eq('tenant_id', tenantId)
-  const [referenceResult, customerResult, documentTypeResult] = await Promise.all([
+  const [referenceResult, customerResult] = await Promise.all([
     responseHandle<Omit<MesReferences, 'customers'>>(
       () => supabase.rpc('mes_work_order_references', { p_tenant_id: tenantId || null }),
       { ...readOptions, showErrorMessage: false }
@@ -766,31 +761,13 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
     responseHandle<MesReferenceOption[]>(() => customerQuery, {
       ...readOptions,
       showErrorMessage: false
-    }),
-    responseHandle<
-      Array<{
-        id: string
-        extensionFields: MesReferenceOption['extensionFields']
-        packingEnabled: boolean
-        packingThicknessFieldKey: string | null
-        projectRequired: boolean
-      }>
-    >(() => documentTypeQuery, { ...readOptions, showErrorMessage: false })
+    })
   ])
-  const settingsById = new Map((documentTypeResult.data ?? []).map((row) => [row.id, row]))
   return {
     materials: referenceResult.data?.materials ?? [],
     customers: customerResult.data ?? [],
     projects: referenceResult.data?.projects ?? [],
-    documentTypes: (referenceResult.data?.documentTypes ?? [])
-      .filter((row) => settingsById.has(row.id))
-      .map((row) => ({
-        ...row,
-        extensionFields: settingsById.get(row.id)?.extensionFields ?? [],
-        packingEnabled: settingsById.get(row.id)?.packingEnabled ?? false,
-        packingThicknessFieldKey: settingsById.get(row.id)?.packingThicknessFieldKey ?? null,
-        projectRequired: settingsById.get(row.id)?.projectRequired ?? false
-      })),
+    documentTypes: referenceResult.data?.documentTypes ?? [],
     employees: referenceResult.data?.employees ?? [],
     workCenters: referenceResult.data?.workCenters ?? []
   }

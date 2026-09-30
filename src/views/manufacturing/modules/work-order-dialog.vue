@@ -6,7 +6,7 @@
         icon="ri:file-list-3-line"
         eyebrow="MANUFACTURING EXECUTION"
         :title="heading"
-        description="确认前维护计划信息；保存后即集成物料、BOM 与工艺路线，形成可追溯的执行基线。"
+        description="下达前维护计划信息；保存后即集成物料、BOM 与工艺路线，形成可追溯的执行基线。"
       >
         <template #aside>
           <WorkOrderStatusTag v-if="detailRecord" :status="detailRecord.orderStatus" />
@@ -281,15 +281,15 @@
   const option = (items: Array<{ id: string; code: string; name: string }>) =>
     items.map((item) => ({ label: `${item.name} · ${item.code}`, value: item.id }))
   const locked = computed(() => readonly.value)
-  const projectRequired = computed(
-    () =>
-      references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
-        ?.projectRequired ?? false
+  const selectedWorkOrderType = computed(() =>
+    references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
   )
-  const activeExtensionFields = computed<WorkOrderExtensionField[]>(() => {
-    const type = references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
-    return type?.packingEnabled ? (type.extensionFields ?? []) : []
-  })
+  const projectRequired = computed(() => selectedWorkOrderType.value?.projectRequired ?? false)
+  const activeExtensionFields = computed<WorkOrderExtensionField[]>(() =>
+    selectedWorkOrderType.value?.packingEnabled
+      ? (selectedWorkOrderType.value.extensionFields ?? [])
+      : []
+  )
   watch(detailAreaTotal, (total) => {
     if (!initializing.value && !quantityOverridden.value && detailRows.value.length) {
       model.orderQuantity = total
@@ -387,7 +387,10 @@
         clearable: true,
         filterable: true,
         onChange: handleWorkOrderTypeChange
-      }
+      },
+      help: selectedWorkOrderType.value?.packingEnabled
+        ? '该类型已启用排包，专用参数随类型显示；板厚用于排包单。'
+        : '仅板材或需要排包的类型显示专用参数；可在 MDM主数据 → 单据类型中配置。'
     },
     {
       key: 'projectId',
@@ -751,7 +754,12 @@
     return {
       ...payload,
       orderQuantity: Number(Number(payload.orderQuantity).toFixed(2)),
-      extensionValues: cloneDeep(extensionValues),
+      extensionValues: cloneDeep(
+        pick(
+          extensionValues,
+          activeExtensionFields.value.map((field) => field.key)
+        )
+      ),
       details: detailRows.value.map((row, index) => ({
         area: row.area.trim(),
         number: row.number.trim(),
