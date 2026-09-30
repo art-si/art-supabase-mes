@@ -576,6 +576,7 @@ export interface MesListQuery {
   current: number
   size: number
   tenantId?: string | null
+  recordId?: string
   keyword?: string
   status?: string | string[]
   schedulingStatus?: string | string[]

@@ -1,6 +1,10 @@
 <template>
   <ArtPermissionGuard :permission="`${routeName}:View`" :resource-name="title">
     <div class="manufacturing-page business-workspace-page art-full-height">
+      <MasterDeleteProcessingNotice
+        v-if="targetWorkOrderId"
+        action-hint="当前列表已定位到关联生产工单。请核对并处理引用，完成后返回原页面继续删除。"
+      />
       <BusinessWorkspaceHeader
         eyebrow="MANUFACTURING EXECUTION"
         :title="title"
@@ -158,6 +162,7 @@
     type BusinessWorkspaceMetric,
     type BusinessWorkspaceTag
   } from '@/components/business/business-workspace-header/index.vue'
+  import MasterDeleteProcessingNotice from '@/components/business/master-delete-processing-notice/index.vue'
   import type { SearchFormItem } from '@/components/core/forms/art-search-bar/index.vue'
   import type {
     ArtTableQueryExpose,
@@ -248,6 +253,13 @@
   const router = useRouter()
   const { hasAuth } = useAuth()
   const isWorkOrder = computed(() => route.path.endsWith('/work-order'))
+  const targetWorkOrderId = computed(() =>
+    isWorkOrder.value &&
+    route.query.fromMasterDelete === '1' &&
+    typeof route.query.recordId === 'string'
+      ? route.query.recordId
+      : ''
+  )
   const routeName = computed(() => (isWorkOrder.value ? 'MesWorkOrder' : 'MesOperationTask'))
   const title = computed(() => (isWorkOrder.value ? '生产工单' : '工序任务'))
   const icon = computed(() => (isWorkOrder.value ? 'ri:file-list-3-line' : 'ri:git-merge-line'))
@@ -1461,7 +1473,10 @@
     options?: { signal?: AbortSignal }
   ) {
     const result = isWorkOrder.value
-      ? await fetchWorkOrders({ ...params, tenantId: effectiveTenantId.value }, options)
+      ? await fetchWorkOrders(
+          { ...params, tenantId: effectiveTenantId.value, recordId: targetWorkOrderId.value },
+          options
+        )
       : await fetchOperationTasks(
           {
             ...params,
@@ -1892,9 +1907,11 @@
     referenceState.workCenters = refs.workCenters
     await nextTick()
     if (request !== contextRequestId) return
-    await tableRef.value?.getData()
+    await tableRef.value?.refreshCreate()
   }
-  watch([() => route.path, effectiveTenantId], () => void loadContext(), { immediate: true })
+  watch([() => route.path, effectiveTenantId, targetWorkOrderId], () => void loadContext(), {
+    immediate: true
+  })
 </script>
 
 <style scoped lang="scss">

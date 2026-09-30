@@ -59,6 +59,7 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
     .order('update_time', { ascending: false })
     .range((params.current - 1) * params.size, params.current * params.size - 1)
   if (params.tenantId) query = query.eq('tenant_id', params.tenantId)
+  if (params.recordId) query = query.eq('id', params.recordId)
   const statuses = (Array.isArray(params.status) ? params.status : [params.status]).filter(
     (status): status is string => Boolean(status)
   )
