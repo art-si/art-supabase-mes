@@ -6,7 +6,7 @@ import {
   scheduleRisk,
   taskEndDate,
   taskStartDate
-} from '../../src/views/scheduling/modules/schedule-policy'
+} from '../../src/views/production-plan/scheduling/modules/schedule-policy'
 
 function task(overrides: Partial<MesOperationTask>): MesOperationTask {
   return {

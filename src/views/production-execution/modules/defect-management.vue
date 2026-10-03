@@ -284,7 +284,8 @@
   import BusinessTableRowActions from '@/components/business/business-table-row-actions/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
-  import { useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { exportExcel } from '@/utils/file'
   import {
     fetchDefectReasons,
@@ -546,8 +547,9 @@
       title: row ? '编辑不良原因' : '新增不良原因',
       onConfirm: async () => {
         try {
-          await formRef.value?.validate()
-        } catch {
+          if (!(await validateArtFormForSubmit(formRef.value))) return false
+        } catch (error) {
+          notifyFriendlyError(error, '不良原因校验失败，请重试')
           return false
         }
         if (!form.departmentId && !effectiveTenantId.value) {
@@ -559,11 +561,12 @@
             ...form,
             departmentId: form.departmentId || null
           })
-          await reload()
-          return true
-        } catch {
+        } catch (error) {
+          notifyFriendlyError(error, '不良原因保存失败，请重试')
           return false
         }
+        await reload()
+        return true
       }
     })
   }

@@ -13,7 +13,7 @@ import {
   taskQuantitySummary,
   taskTone,
   taskToneLabel
-} from '../../src/views/gantt-scheduling/modules/gantt-schedule-policy'
+} from '../../src/views/production-plan/gantt-scheduling/modules/gantt-schedule-policy'
 
 const centerId = '11111111-1111-4111-8111-111111111111'
 const departmentId = '22222222-2222-4222-8222-222222222222'

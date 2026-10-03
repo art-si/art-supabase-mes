@@ -813,7 +813,8 @@
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import BusinessTableWorkspaceActions from '@/components/business/business-table-workspace-actions/index.vue'
-  import { useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { useUserStore } from '@/store/modules/user'
   import { exportExcel } from '@/utils/file'
   import {
@@ -1508,8 +1509,9 @@
   }
   async function submitForm() {
     try {
-      await formRef.value?.validate()
-    } catch {
+      if (!(await validateArtFormForSubmit(formRef.value))) return false
+    } catch (error) {
+      notifyFriendlyError(error, '执行记录校验失败，请重试')
       return false
     }
     try {
@@ -1521,12 +1523,13 @@
         action: formMode.value,
         payload: buildPayload()
       })
-      await loadRows()
-      if (props.mode === 'equipment') equipmentView.value = 'supplement'
-      return true
-    } catch {
+    } catch (error) {
+      notifyFriendlyError(error, '执行记录保存失败，请检查内容后重试')
       return false
     }
+    await loadRows()
+    if (props.mode === 'equipment') equipmentView.value = 'supplement'
+    return true
   }
   function openCreate() {
     formMode.value = 'create'
@@ -1596,8 +1599,9 @@
       onConfirm: async () => {
         if (!actionEvent.value) return false
         try {
-          await actionFormRef.value?.validate()
-        } catch {
+          if (!(await validateArtFormForSubmit(actionFormRef.value))) return false
+        } catch (error) {
+          notifyFriendlyError(error, '执行操作校验失败，请重试')
           return false
         }
         try {
@@ -1622,11 +1626,12 @@
                         : {}
                   }
           })
-          await loadRows()
-          return true
-        } catch {
+        } catch (error) {
+          notifyFriendlyError(error, '执行操作提交失败，请稍后重试')
           return false
         }
+        await loadRows()
+        return true
       }
     })
   }

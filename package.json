@@ -25,7 +25,7 @@
     "check": "pnpm boundary:audit && pnpm ui:audit && pnpm typecheck && pnpm lint && pnpm test:unit"
   },
   "dependencies": {
-    "art-supabase-pro": "https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/2e5a5795036673cef5aff453892ee70987084834.tar.gz"
+    "art-supabase-pro": "https://gitee.com/wangyanghub/art-supabase-pro/repository/archive/25ec7c36297d8f20a54ff42b205efa5f985ea063.tar.gz"
   },
   "peerDependencies": {
     "vue": "^3.5.38"

@@ -101,6 +101,7 @@
               :error="error"
               :empty="hasLoaded && !error && tasks.length === 0"
               empty-title="当前条件下暂无工序任务"
+              empty-description="调整工作中心或查询条件后重试。"
               retryable
               :min-height="480"
               @retry="loadTasks"
@@ -173,6 +174,7 @@
                   subtitle="当前任务的生产与工序信息"
                   :empty="!selectedTask"
                   empty-title="请选择一项工序任务"
+                  empty-description="从左侧任务列表选择后查看生产进度与可执行操作。"
                   :min-height="290"
                 >
                   <template v-if="selectedTask">
@@ -255,6 +257,7 @@
                   subtitle="生产工单与产品快照"
                   :empty="!selectedTask"
                   empty-title="请选择一项工序任务"
+                  empty-description="从左侧选择任务后查看工单与产品信息。"
                   :min-height="240"
                 >
                   <template v-if="selectedTask">
@@ -303,6 +306,7 @@
               subtitle="上机、下机时间与现场人员"
               :empty="!selectedTask"
               empty-title="请选择一项工序任务"
+              empty-description="从左侧选择任务后查看现场人员出勤。"
               :min-height="400"
             >
               <template #actions
@@ -340,7 +344,13 @@
                     >
                   </div>
                 </ElScrollbar>
-                <ArtEmptyState v-else title="暂无打卡记录" size="compact" :visual-size="64" />
+                <ArtEmptyState
+                  v-else
+                  title="暂无打卡记录"
+                  description="人员上下机打卡后，可在此查看记录。"
+                  size="compact"
+                  :visual-size="64"
+                />
               </template>
             </ArtSectionCard>
           </div>
@@ -401,6 +411,7 @@
               ><ArtEmptyState
                 v-else
                 title="当前工序没有关联 ESOP 文档"
+                description="关联作业指导文件后，可在此查看。"
                 size="compact"
                 :visual-size="72"
             /></template>
@@ -435,7 +446,12 @@
                     >批次 {{ row.details.batchNo || '—' }} · {{ row.actorName || '—' }}</small
                   ></article
                 ></div
-              ><ArtEmptyState v-else title="当前任务暂无投料记录" size="compact" :visual-size="64"
+              ><ArtEmptyState
+                v-else
+                title="当前任务暂无投料记录"
+                description="记录投料后，可在此追溯批次与数量。"
+                size="compact"
+                :visual-size="64"
             /></template>
             <template v-else-if="consoleMode === 'task'"
               ><ElDescriptions :column="detailColumns" border
@@ -539,6 +555,8 @@
   import type { ArtDrawerExpose } from '@/components/core/drawers/art-drawer/types'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
+  import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
+  import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
   import {
@@ -993,11 +1011,15 @@
           (item) => item.component_material_code === feedForm.materialCode
         )
         try {
-          await feedFormRef.value?.validate()
-        } catch {
+          if (!(await validateArtFormForSubmit(feedFormRef.value))) return false
+        } catch (error) {
+          notifyFriendlyError(error, '投料内容校验失败，请重试')
           return false
         }
-        if (!material) return false
+        if (!material) {
+          ElMessage.warning('所选物料已不可用，请重新选择')
+          return false
+        }
         try {
           await saveExecutionEvent({
             kind: 'material_feed',
@@ -1018,11 +1040,12 @@
               remark: feedForm.remark.trim()
             }
           })
-          await loadFeedRows()
-          return true
-        } catch {
+        } catch (error) {
+          notifyFriendlyError(error, '投料记录保存失败，请检查内容后重试')
           return false
         }
+        await loadFeedRows()
+        return true
       }
     })
   }
@@ -1036,17 +1059,19 @@
       onConfirm: async () => {
         if (!selectedTask.value) return false
         try {
-          await clockFormRef.value?.validate()
-        } catch {
+          if (!(await validateArtFormForSubmit(clockFormRef.value))) return false
+        } catch (error) {
+          notifyFriendlyError(error, '上机打卡人员校验失败，请重试')
           return false
         }
         try {
           await clockExecution(selectedTask.value.id, clockForm.personIds, 'in')
-          await loadAttendance()
-          return true
-        } catch {
+        } catch (error) {
+          notifyFriendlyError(error, '上机打卡失败，请稍后重试')
           return false
         }
+        await loadAttendance()
+        return true
       }
     })
   }

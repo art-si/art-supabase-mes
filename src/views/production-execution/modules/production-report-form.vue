@@ -248,6 +248,8 @@
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
   import ArtUploadFile from '@/components/core/forms/art-upload-file/index.vue'
   import ArtUserSelect from '@/components/core/forms/art-user-select/index.vue'
+  import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
+  import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import {
     fetchDefectReasons,
     fetchExecutionWorkCenterEquipment,
@@ -389,8 +391,9 @@
       return false
     }
     try {
-      await formRef.value?.validate()
-    } catch {
+      if (!(await validateArtFormForSubmit(formRef.value))) return false
+    } catch (error) {
+      notifyFriendlyError(error, '报工内容校验失败，请重试')
       return false
     }
     try {
@@ -402,11 +405,12 @@
           payload
         )
       else await submitProductionReport(task.value.id, task.value.workCenterId, payload)
-      emit('saved')
-      return true
-    } catch {
+    } catch (error) {
+      notifyFriendlyError(error, '报工保存失败，请检查内容后重试')
       return false
     }
+    emit('saved')
+    return true
   }
   async function loadCalendarShifts(nextTask: MesExecutionTask): Promise<void> {
     const request = ++shiftRequest

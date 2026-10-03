@@ -1,1 +1,0 @@
-import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-B53NdkV7.js";import{t as r}from"./execution-event-workspace-3U6dOkAf.js";var i=e({name:`MesInspection`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{mode:`inspection`}))}});export{i as default};

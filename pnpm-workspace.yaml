@@ -7,6 +7,6 @@ allowBuilds:
 overrides:
   '@vue/compiler-sfc': 3.5.40
   element-plus: 2.14.3
-  pinia: 3.0.3
+  pinia: 3.0.4
   vue: 3.5.40
   vue-router: 5.2.0

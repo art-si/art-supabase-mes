@@ -1,6 +1,6 @@
 import { computed, reactive, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useTenantScopeStore } from '@/store/modules/tenantScope'
+import { useTenantScopeStore } from '@/store/modules/tenant-scope'
 import TreeUtils from '@/utils/tree'
 import { fetchOperationTaskScope, type MesProductionScope } from '@mes/api'
 import type { ProductionScopeWorkshopOption } from '@/components/business/production-work-center-navigator/index.vue'

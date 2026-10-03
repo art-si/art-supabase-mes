@@ -6,7 +6,7 @@ import {
   remainingPieces,
   suggestPacks,
   validatePlan
-} from '../../src/views/packing/modules/packing-plan'
+} from '../../src/views/production-plan/packing/modules/packing-plan'
 
 const rule: PackRule = {
   id: 'rule',
