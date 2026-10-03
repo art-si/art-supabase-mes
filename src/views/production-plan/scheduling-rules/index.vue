@@ -193,24 +193,29 @@
     min-width: 0;
     min-height: 0;
   }
+
   .rule-page__card {
     flex: 1;
     min-height: 0;
   }
+
   .rule-page__name {
     display: grid;
     gap: 3px;
   }
+
   .rule-page__name small {
-    color: var(--el-text-color-secondary);
     font-family: var(--art-font-family-mono);
+    color: var(--el-text-color-secondary);
   }
+
   .rule-page__tags,
   .rule-page__actions {
     display: flex;
     gap: var(--art-space-2);
     align-items: center;
   }
+
   @media (width <= 768px) {
     .rule-page {
       height: auto;

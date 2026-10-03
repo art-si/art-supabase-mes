@@ -561,6 +561,7 @@
   ])
   const rules = {
     tenantId: [{ required: true, message: '请选择所属租户', trigger: 'change' }],
+    workOrderTypeId: [{ required: true, message: '请选择工单类型', trigger: 'change' }],
     materialId: [{ required: true, message: '请选择物料描述', trigger: 'change' }],
     orderQuantity: [{ required: true, message: '请输入工单数量', trigger: 'blur' }],
     plannedStartDate: [{ required: true, message: '请选择计划开始日期', trigger: 'change' }],
@@ -576,9 +577,12 @@
     if (model.tenantId !== tenantId) return
     references.value = nextReferences
     materialCategories.value = nextMaterialCategories
-    if (!currentId.value && !model.workOrderTypeId) {
+    if (
+      !currentId.value &&
+      !nextReferences.documentTypes.some((item) => item.id === model.workOrderTypeId)
+    ) {
       model.workOrderTypeId =
-        nextReferences.documentTypes.find((item) => item.code === 'PP40')?.id ?? null
+        nextReferences.documentTypes.find((item) => item.isDefault)?.id ?? null
     }
   }
   async function handleTenantChange(): Promise<void> {

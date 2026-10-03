@@ -839,11 +839,11 @@
       min-width: 0;
       padding: 0 4px;
       overflow: hidden;
+      text-overflow: ellipsis;
       font-size: 11px;
       font-variant-numeric: tabular-nums;
       color: var(--el-text-color-regular);
       text-align: center;
-      text-overflow: ellipsis;
       white-space: nowrap;
 
       span {

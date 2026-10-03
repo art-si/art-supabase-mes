@@ -262,7 +262,7 @@
 <script setup lang="ts">
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
-  import { computed, onMounted, reactive, ref, watch } from 'vue'
+  import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import { ElMessage, type FormRules } from 'element-plus'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
@@ -400,7 +400,7 @@
   const detailDrawerRef = ref<ArtDrawerExpose<DefectRow>>()
   const detailRow = ref<DefectRow | null>(null)
   const editingId = ref<string | null>(null)
-  const form = reactive({
+  const form = ref({
     category: 'process',
     departmentId: '',
     code: '',
@@ -534,7 +534,7 @@
   function openForm(raw?: unknown) {
     const row = raw as MesDefectReason | undefined
     editingId.value = row?.id || null
-    Object.assign(form, {
+    Object.assign(form.value, {
       category: row?.category || 'process',
       departmentId: row?.departmentId || scope.selectedWorkshopId || '',
       code: row?.code || '',
@@ -552,14 +552,14 @@
           notifyFriendlyError(error, '不良原因校验失败，请重试')
           return false
         }
-        if (!form.departmentId && !effectiveTenantId.value) {
+        if (!form.value.departmentId && !effectiveTenantId.value) {
           ElMessage.warning('请先选择目标租户的车间')
           return false
         }
         try {
           await saveDefectReason(editingId.value, row ? 'update' : 'create', {
-            ...form,
-            departmentId: form.departmentId || null
+            ...form.value,
+            departmentId: form.value.departmentId || null
           })
         } catch (error) {
           notifyFriendlyError(error, '不良原因保存失败，请重试')

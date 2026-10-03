@@ -51,7 +51,7 @@
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import dayjs from 'dayjs'
-  import { computed, reactive, ref, shallowRef } from 'vue'
+  import { computed, ref, shallowRef } from 'vue'
   import { ElCheckbox, ElInputNumber, ElMessage } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
@@ -86,7 +86,7 @@
   const rows = ref<AllocationRow[]>([])
   const shifts = ref<MesSchedulingShift[]>([])
   const averageEnabled = ref(false)
-  const form = reactive({ plannedDates: [] as string[], shiftScheduleId: '' })
+  const form = ref({ plannedDates: [] as string[], shiftScheduleId: '' })
   const availableQuantity = computed(() =>
     Math.max(
       Number(task.value?.plannedQuantity || 0) -
@@ -213,8 +213,9 @@
       quantity: existingQuantities.get(center.id)
     }))
     averageEnabled.value = false
-    form.shiftScheduleId = data.shiftScheduleId || data.row.allocations?.[0]?.shiftScheduleId || ''
-    form.plannedDates = [
+    form.value.shiftScheduleId =
+      data.shiftScheduleId || data.row.allocations?.[0]?.shiftScheduleId || ''
+    form.value.plannedDates = [
       data.row.plannedStartDate ||
         data.row.workOrder?.plannedStartDate ||
         dayjs().format('YYYY-MM-DD'),
@@ -243,9 +244,9 @@
           await allocateOperationTask({
             id: data.row.id,
             allocations,
-            plannedStartDate: form.plannedDates[0]!,
-            plannedEndDate: form.plannedDates[1]!,
-            shiftScheduleId: form.shiftScheduleId || null
+            plannedStartDate: form.value.plannedDates[0]!,
+            plannedEndDate: form.value.plannedDates[1]!,
+            shiftScheduleId: form.value.shiftScheduleId || null
           })
           emit('success')
           return true

@@ -12,6 +12,7 @@ export interface MesReferenceOption {
   id: string
   code: string
   name: string
+  isDefault?: boolean
   specification?: string
   unit?: string
   extensionFields?: WorkOrderExtensionField[]

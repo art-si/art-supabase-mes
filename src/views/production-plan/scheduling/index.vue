@@ -1051,12 +1051,15 @@
   }
 
   let requestId = 0
+  let disposed = false
   async function loadWorkspace(): Promise<void> {
+    if (disposed) return
     const request = ++requestId
     state.loading = true
     state.error = ''
     try {
       await tenantScopeStore.loadTenantOptions()
+      if (request !== requestId || disposed) return
       const tenantId = effectiveTenantId.value || undefined
       const [tasks, scope, context] = await Promise.all([
         fetchOperationTasks({ current: 1, size: 2000, tenantId }),
@@ -1083,23 +1086,35 @@
     }
   }
 
-  const refreshFromRealtime = useDebounceFn(() => void loadWorkspace(), 500)
-  let unsubscribeRealtime: (() => void) | undefined
   watch(
     effectiveTenantId,
-    async () => {
-      unsubscribeRealtime?.()
+    async (tenantId, _previousTenantId, onCleanup) => {
+      let active = true
+      let unsubscribeRealtime: (() => void) | undefined
+      const refreshFromRealtime = useDebounceFn(() => {
+        if (active && !disposed) void loadWorkspace()
+      }, 500)
+      onCleanup(() => {
+        active = false
+        requestId += 1
+        unsubscribeRealtime?.()
+      })
       state.realtimeConnected = false
       await loadWorkspace()
-      unsubscribeRealtime = subscribeMesSchedulingChanges(effectiveTenantId.value, () => {
+      if (!active || disposed) return
+      unsubscribeRealtime = subscribeMesSchedulingChanges(tenantId, () => {
+        if (!active || disposed) return
         state.realtimeConnected = true
         refreshFromRealtime()
       })
       state.realtimeConnected = true
     },
-    { immediate: true }
+    { immediate: true, flush: 'sync' }
   )
-  onUnmounted(() => unsubscribeRealtime?.())
+  onUnmounted(() => {
+    disposed = true
+    requestId += 1
+  })
 </script>
 
 <style scoped lang="scss">

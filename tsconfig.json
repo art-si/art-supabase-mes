@@ -36,6 +36,6 @@
       ]
     }
   },
-  "include": ["vite.config.ts", "src/**/*", "tests/unit/**/*.ts", "../../src/types/**/*.d.ts"],
+  "include": ["vite.config.ts", "src/**/*", "tests/unit/**/*.ts"],
   "exclude": ["node_modules"]
 }

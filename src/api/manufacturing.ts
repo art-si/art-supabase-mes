@@ -1,4 +1,7 @@
 import { useSupabase } from '@/hooks'
+import { groupBy, uniq } from 'lodash-es'
+import { mapWithConcurrency } from '@/utils/async'
+import type { ApiRequestOptions } from '@/types/api/request'
 import { normalizeNullableText } from '@/utils/form/normalize'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
 import { fetchAllRangePages } from '@/utils/supabase/pagination'
@@ -101,13 +104,17 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
     readOptions
   )
   const rows = data ?? []
-  const detailsByTenant = await Promise.all(
-    [...new Set(rows.map((row) => row.tenantId))].map(async (tenantId) => ({
+  const detailsByTenant = await mapWithConcurrency(
+    Object.entries(groupBy(rows, 'tenantId')),
+    3,
+    async ([tenantId, tenantRows]) => ({
       tenantId,
-      details: await fetchMesMaterialDetails(tenantId, [
-        ...new Set(rows.filter((row) => row.tenantId === tenantId).map((row) => row.materialId))
-      ])
-    }))
+      details: await fetchMesMaterialDetails(
+        tenantId,
+        uniq(tenantRows.map((row) => row.materialId)),
+        options
+      )
+    })
   )
   const materialDetails = new Map(
     detailsByTenant.map(({ tenantId, details }) => [tenantId, details])
@@ -764,11 +771,28 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
       showErrorMessage: false
     })
   ])
+  const documentTypes = referenceResult.data?.documentTypes ?? []
+  const { data: defaultDocumentTypes } = documentTypes.length
+    ? await responseHandle<Array<{ id: string }>>(
+        () =>
+          supabase
+            .from('mdm_document_type')
+            .select('id')
+            .in(
+              'id',
+              documentTypes.map((item) => item.id)
+            )
+            .eq('is_default', true)
+            .eq('enabled', true),
+        readOptions
+      )
+    : { data: [] }
+  const defaultIds = new Set((defaultDocumentTypes ?? []).map((item) => item.id))
   return {
     materials: referenceResult.data?.materials ?? [],
     customers: customerResult.data ?? [],
     projects: referenceResult.data?.projects ?? [],
-    documentTypes: referenceResult.data?.documentTypes ?? [],
+    documentTypes: documentTypes.map((item) => ({ ...item, isDefault: defaultIds.has(item.id) })),
     employees: referenceResult.data?.employees ?? [],
     workCenters: referenceResult.data?.workCenters ?? []
   }
@@ -878,7 +902,11 @@ interface MesMaterialDetails {
   thicknessMm: number | null
 }
 
-async function fetchMesMaterialDetails(tenantId: string, ids: string[]) {
+async function fetchMesMaterialDetails(
+  tenantId: string,
+  ids: string[],
+  options?: ApiRequestOptions
+) {
   const details = new Map<string, MesMaterialDetails>()
   if (!ids.length) return details
   const { data } = await responseHandle<
@@ -890,25 +918,26 @@ async function fetchMesMaterialDetails(tenantId: string, ids: string[]) {
       attributeGroupId: string | null
       attributeValues: Record<string, string | number | null> | null
     }>
-  >(
-    () =>
-      supabase
-        .from('mdm_material')
-        .select('id,description,width,thickness,attribute_group_id,attribute_values')
-        .eq('tenant_id', tenantId)
-        .in('id', ids),
-    readOptions
-  )
+  >(() => {
+    const query = supabase
+      .from('mdm_material')
+      .select('id,description,width,thickness,attribute_group_id,attribute_values')
+      .eq('tenant_id', tenantId)
+      .in('id', ids)
+    return options?.signal ? query.abortSignal(options.signal) : query
+  }, readOptions)
   const groupIds = [...new Set((data ?? []).map((item) => item.attributeGroupId).filter(Boolean))]
   const { data: attributes } = groupIds.length
     ? await responseHandle<Array<{ groupId: string; attributeKey: string; attributeName: string }>>(
-        () =>
-          supabase
+        () => {
+          const query = supabase
             .from('mdm_material_attribute')
             .select('group_id,attribute_key,attribute_name')
             .eq('tenant_id', tenantId)
             .in('group_id', groupIds)
-            .in('attribute_name', ['宽度', '厚度']),
+            .in('attribute_name', ['宽度', '厚度'])
+          return options?.signal ? query.abortSignal(options.signal) : query
+        },
         readOptions
       )
     : { data: [] }

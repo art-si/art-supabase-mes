@@ -24,7 +24,7 @@
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import dayjs from 'dayjs'
-  import { computed, reactive, ref, shallowRef, watch } from 'vue'
+  import { computed, ref, shallowRef, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
@@ -52,7 +52,7 @@
   const task = shallowRef<MesOperationTask>()
   const centers = ref<MesProductionScopeCenter[]>([])
   const shifts = ref<MesSchedulingShift[]>([])
-  const form = reactive({
+  const form = ref({
     quantity: undefined as number | undefined,
     workCenterId: '',
     requiredStartDate: '',
@@ -63,7 +63,7 @@
     Math.max(Number(task.value?.pendingScheduleQuantity || 0), 0)
   )
   const availableShifts = computed(() => {
-    const center = centers.value.find((item) => item.id === form.workCenterId)
+    const center = centers.value.find((item) => item.id === form.value.workCenterId)
     if (!center) return []
     return shifts.value.filter(
       (shift) =>
@@ -73,10 +73,10 @@
     )
   })
   watch(
-    () => form.workCenterId,
+    () => form.value.workCenterId,
     () => {
-      if (!availableShifts.value.some((shift) => shift.id === form.shiftScheduleId)) {
-        form.shiftScheduleId = availableShifts.value[0]?.id || ''
+      if (!availableShifts.value.some((shift) => shift.id === form.value.shiftScheduleId)) {
+        form.value.shiftScheduleId = availableShifts.value[0]?.id || ''
       }
     }
   )
@@ -157,7 +157,7 @@
       data.row.plannedStartDate ||
       data.row.workOrder?.plannedStartDate ||
       dayjs().format('YYYY-MM-DD')
-    Object.assign(form, {
+    Object.assign(form.value, {
       quantity: data.quantity,
       workCenterId: data.workCenterId,
       requiredStartDate: startDate,
@@ -168,8 +168,8 @@
         startDate,
       shiftScheduleId: data.shiftScheduleId || ''
     })
-    if (!availableShifts.value.some((shift) => shift.id === form.shiftScheduleId))
-      form.shiftScheduleId = availableShifts.value[0]?.id || ''
+    if (!availableShifts.value.some((shift) => shift.id === form.value.shiftScheduleId))
+      form.value.shiftScheduleId = availableShifts.value[0]?.id || ''
 
     await dialogRef.value?.handleOpen(data, {
       title: '排产',
@@ -181,28 +181,28 @@
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           if (
-            !Number.isFinite(form.quantity) ||
-            Number(form.quantity) <= 0 ||
-            Number(form.quantity) > availableQuantity.value
+            !Number.isFinite(form.value.quantity) ||
+            Number(form.value.quantity) <= 0 ||
+            Number(form.value.quantity) > availableQuantity.value
           ) {
             ElMessage.warning('排产建议数量须大于 0 且不能超过待排产数量')
             return false
           }
-          if (form.requiredCompletionDate < form.requiredStartDate) {
+          if (form.value.requiredCompletionDate < form.value.requiredStartDate) {
             ElMessage.warning('工序要求完工日期不能早于开工日期')
             return false
           }
-          if (!availableShifts.value.some((shift) => shift.id === form.shiftScheduleId)) {
+          if (!availableShifts.value.some((shift) => shift.id === form.value.shiftScheduleId)) {
             ElMessage.warning('请选择当前工作中心可用的白班或夜班')
             return false
           }
           await confirmOperationTaskSchedule({
             id: data.row.id,
-            quantity: Number(form.quantity),
-            workCenterId: form.workCenterId,
-            plannedStartDate: form.requiredStartDate,
-            plannedEndDate: form.requiredCompletionDate,
-            shiftScheduleId: form.shiftScheduleId
+            quantity: Number(form.value.quantity),
+            workCenterId: form.value.workCenterId,
+            plannedStartDate: form.value.requiredStartDate,
+            plannedEndDate: form.value.requiredCompletionDate,
+            shiftScheduleId: form.value.shiftScheduleId
           })
           emit('success')
           return true

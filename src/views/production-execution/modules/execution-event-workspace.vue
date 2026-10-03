@@ -1151,7 +1151,7 @@
         }
       : {})
   }))
-  const form = reactive({
+  const form = ref({
     workCenterId: '',
     taskId: '',
     title: '',
@@ -1222,7 +1222,7 @@
               validator: (_rule, value, callback) => {
                 if (typeof value !== 'number' || value < 0) {
                   callback(new Error('不合格次数不能小于零'))
-                } else if (form.passCount + value !== form.sampleCount) {
+                } else if (form.value.passCount + value !== form.value.sampleCount) {
                   callback(new Error('合格与不合格次数之和必须等于抽检次数'))
                 } else {
                   callback()
@@ -1266,7 +1266,9 @@
           ? '编辑现场记录'
           : `编辑${tableTitle.value}`
   )
-  const selectedFormTask = computed(() => taskOptions.value.find((item) => item.id === form.taskId))
+  const selectedFormTask = computed(() =>
+    taskOptions.value.find((item) => item.id === form.value.taskId)
+  )
   const rowIndex = (index: number) => (page.value - 1) * size.value + index + 1
   const formatDateTime = (value: string | null | undefined) =>
     value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—'
@@ -1415,7 +1417,7 @@
     })
   }
   function resetForm() {
-    Object.assign(form, {
+    Object.assign(form.value, {
       workCenterId: activeWorkCenterId.value,
       taskId: props.taskId || '',
       title: '',
@@ -1452,59 +1454,62 @@
   function buildPayload() {
     const details: Record<string, unknown> = {}
     if (props.mode === 'misc_piece')
-      Object.assign(details, { unit: form.unit.trim(), unitPrice: form.unitPrice })
+      Object.assign(details, { unit: form.value.unit.trim(), unitPrice: form.value.unitPrice })
     if (props.mode === 'misc_report')
-      Object.assign(details, { onPostHours: form.onPostHours, shiftName: form.shiftName.trim() })
+      Object.assign(details, {
+        onPostHours: form.value.onPostHours,
+        shiftName: form.value.shiftName.trim()
+      })
     if (props.mode === 'inspection')
       Object.assign(details, {
-        sampleCount: form.sampleCount,
-        passCount: form.passCount,
-        failCount: form.failCount,
-        badCount: form.badCount,
-        judgment: form.judgment,
+        sampleCount: form.value.sampleCount,
+        passCount: form.value.passCount,
+        failCount: form.value.failCount,
+        badCount: form.value.badCount,
+        judgment: form.value.judgment,
         plannedQuantity: selectedFormTask.value?.plannedQuantity ?? 0
       })
     if (props.mode === 'mold')
       Object.assign(details, {
-        moldCode: form.moldCode.trim(),
-        moldName: form.moldName.trim(),
-        clamping: form.clamping.trim(),
-        location: form.location.trim(),
-        operatorPersonId: form.personId || null,
-        repairType: form.repairType.trim(),
-        repairDate: form.repairDate || null,
-        inspectionBatchNo: form.inspectionBatchNo.trim(),
-        repairPersonId: form.repairPersonId || null,
-        requiredCompletionDate: form.requiredCompletionDate || null,
-        plannedCompletionDate: form.plannedCompletionDate || null,
-        problemDescription: form.problemDescription.trim()
+        moldCode: form.value.moldCode.trim(),
+        moldName: form.value.moldName.trim(),
+        clamping: form.value.clamping.trim(),
+        location: form.value.location.trim(),
+        operatorPersonId: form.value.personId || null,
+        repairType: form.value.repairType.trim(),
+        repairDate: form.value.repairDate || null,
+        inspectionBatchNo: form.value.inspectionBatchNo.trim(),
+        repairPersonId: form.value.repairPersonId || null,
+        requiredCompletionDate: form.value.requiredCompletionDate || null,
+        plannedCompletionDate: form.value.plannedCompletionDate || null,
+        problemDescription: form.value.problemDescription.trim()
       })
     if (props.mode === 'equipment')
       Object.assign(details, {
-        equipmentCode: form.equipmentCode.trim(),
-        equipmentName: form.equipmentName.trim(),
-        judgment: form.judgment
+        equipmentCode: form.value.equipmentCode.trim(),
+        equipmentName: form.value.equipmentName.trim(),
+        judgment: form.value.judgment
       })
     if (props.mode === 'andon' || props.mode === 'exception')
       Object.assign(details, {
-        category: form.category,
-        shiftName: form.shiftName.trim(),
-        excludedFromAssessment: form.excludedFromAssessment
+        category: form.value.category,
+        shiftName: form.value.shiftName.trim(),
+        excludedFromAssessment: form.value.excludedFromAssessment
       })
     return {
-      title: form.title.trim(),
+      title: form.value.title.trim(),
       quantity:
         props.mode === 'misc_report'
-          ? form.quantity
+          ? form.value.quantity
           : props.mode === 'inspection'
-            ? form.badCount
+            ? form.value.badCount
             : props.mode === 'misc_piece'
               ? 1
               : 0,
-      handlerPersonId: form.personId || null,
+      handlerPersonId: form.value.personId || null,
       details,
-      media: form.media,
-      remark: form.remark.trim()
+      media: form.value.media,
+      remark: form.value.remark.trim()
     }
   }
   async function submitForm() {
@@ -1518,8 +1523,8 @@
       await saveExecutionEvent({
         id: editingId.value,
         kind: props.mode === 'equipment' ? formKind.value : selectedKind.value,
-        taskId: form.taskId || null,
-        workCenterId: form.workCenterId,
+        taskId: form.value.taskId || null,
+        workCenterId: form.value.workCenterId,
         action: formMode.value,
         payload: buildPayload()
       })
@@ -1546,7 +1551,7 @@
     editingId.value = row.id
     formKind.value = row.kind
     resetForm()
-    Object.assign(form, {
+    Object.assign(form.value, {
       workCenterId: row.workCenterId || '',
       taskId: row.taskId || '',
       title: row.title,

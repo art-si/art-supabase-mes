@@ -1,5 +1,8 @@
 import { useSupabase } from '@/hooks'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
+import { fetchAllRangePages } from '@/utils/supabase/pagination'
+import type { ApiRequestOptions } from '@/types/api/request'
+import { uniq } from 'lodash-es'
 import type {
   MesDefectReason,
   MesExecutionAttendance,
@@ -121,24 +124,12 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
     ? await findTaskIdsForKeyword(query.keyword, query.tenantId)
     : null
   if (keywordTaskIds && !keywordTaskIds.length) return { data: [] as MesExecutionTask[], total: 0 }
-  let shiftTaskIds: string[] | null = null
-  if (query.shiftName) {
-    let allocationQuery = supabase
-      .from('mes_operation_task_allocation')
-      .select('task_id')
-      .eq('shift_name_snapshot', query.shiftName)
-      .limit(10000)
-    if (query.tenantId) allocationQuery = allocationQuery.eq('tenant_id', query.tenantId)
-    const { data } = await responseHandle<Array<{ taskId: string }>>(
-      () => allocationQuery,
-      readOptions
-    )
-    shiftTaskIds = [...new Set((data ?? []).map((item) => item.taskId))]
-    if (!shiftTaskIds.length) return { data: [] as MesExecutionTask[], total: 0 }
-  }
   let request = supabase
     .from('mes_operation_task')
-    .select(taskSelect, { count: 'exact' })
+    .select(
+      query.shiftName ? `${taskSelect},shiftFilter:mes_operation_task_allocation()` : taskSelect,
+      { count: 'exact' }
+    )
     .is('deleted_at', null)
     .in('scheduling_status', ['scheduled', 'no_schedule'])
     .order('required_completion_date', { ascending: true, nullsFirst: false })
@@ -146,7 +137,12 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
   else if (query.departmentIds?.length) request = request.in('department_id', query.departmentIds)
-  if (shiftTaskIds) request = request.in('id', shiftTaskIds)
+  if (query.shiftName) {
+    request = request
+      .eq('shiftFilter.shift_name_snapshot', query.shiftName)
+      .not('shiftFilter', 'is', null)
+    if (query.tenantId) request = request.eq('shiftFilter.tenant_id', query.tenantId)
+  }
   if (keywordTaskIds) request = request.in('id', keywordTaskIds)
   if (query.statuses?.length) {
     const statuses = new Set(query.statuses)
@@ -181,34 +177,41 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
 }
 
 export async function fetchExecutionShiftNames(tenantId?: string | null) {
-  let request = supabase
-    .from('mes_operation_task_allocation')
-    .select('shift_name_snapshot')
-    .not('shift_name_snapshot', 'is', null)
-    .limit(1000)
-  if (tenantId) request = request.eq('tenant_id', tenantId)
-  const { data } = await responseHandle<Array<{ shiftNameSnapshot: string }>>(
-    () => request,
-    readOptions
+  const { data, error } = await fetchAllRangePages<{ shiftNameSnapshot: string }>(
+    async ({ from, to }) => {
+      let request = supabase
+        .from('mes_operation_task_allocation')
+        .select('shift_name_snapshot')
+        .not('shift_name_snapshot', 'is', null)
+        .order('id')
+        .range(from, to)
+      if (tenantId) request = request.eq('tenant_id', tenantId)
+      return await responseHandle<Array<{ shiftNameSnapshot: string }>>(() => request, readOptions)
+    }
   )
-  return [...new Set((data ?? []).map((item) => item.shiftNameSnapshot).filter(Boolean))]
+  if (error) throw error
+  return uniq((data ?? []).map((item) => item.shiftNameSnapshot).filter(Boolean))
 }
 
 export async function fetchProductionReportShiftNames(
   tenantId?: string | null,
   dateRange?: [string, string] | null
 ) {
-  let request = supabase
-    .from('mes_production_report')
-    .select('shift_name')
-    .neq('shift_name', '')
-    .order('reported_at', { ascending: false })
-    .limit(10000)
-  if (tenantId) request = request.eq('tenant_id', tenantId)
-  if (dateRange?.[0]) request = request.gte('reported_at', `${dateRange[0]}T00:00:00+08:00`)
-  if (dateRange?.[1]) request = request.lte('reported_at', `${dateRange[1]}T23:59:59+08:00`)
-  const { data } = await responseHandle<Array<{ shiftName: string }>>(() => request, readOptions)
-  return [...new Set((data ?? []).map((row) => row.shiftName).filter(Boolean))]
+  const { data, error } = await fetchAllRangePages<{ shiftName: string }>(async ({ from, to }) => {
+    let request = supabase
+      .from('mes_production_report')
+      .select('shift_name')
+      .neq('shift_name', '')
+      .order('reported_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to)
+    if (tenantId) request = request.eq('tenant_id', tenantId)
+    if (dateRange?.[0]) request = request.gte('reported_at', `${dateRange[0]}T00:00:00+08:00`)
+    if (dateRange?.[1]) request = request.lte('reported_at', `${dateRange[1]}T23:59:59+08:00`)
+    return await responseHandle<Array<{ shiftName: string }>>(() => request, readOptions)
+  })
+  if (error) throw error
+  return uniq((data ?? []).map((row) => row.shiftName).filter(Boolean))
 }
 
 export interface MesWorkCenterEquipmentOption {
@@ -260,20 +263,31 @@ export async function fetchExecutionAttendance(taskId: string) {
   return data ?? []
 }
 
-export async function fetchExecutionAttendanceRange(query: MesExecutionListQuery) {
-  let request = supabase
-    .from('mes_execution_attendance')
-    .select(
-      '*,person:mdm_production_personnel!mes_execution_attendance_personnel_id_fkey(name,employee_no)'
+export async function fetchExecutionAttendanceRange(
+  query: MesExecutionListQuery,
+  options?: ApiRequestOptions
+) {
+  const { data, error } = await fetchAllRangePages<MesExecutionAttendance>(async ({ from, to }) => {
+    let request = supabase
+      .from('mes_execution_attendance')
+      .select(
+        '*,person:mdm_production_personnel!mes_execution_attendance_personnel_id_fkey(name,employee_no)'
+      )
+      .gte('clock_in_at', `${query.dateRange?.[0] || '1900-01-01'}T00:00:00+08:00`)
+      .lte('clock_in_at', `${query.dateRange?.[1] || '9999-12-31'}T23:59:59+08:00`)
+      .order('clock_in_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to)
+    if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
+    if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
+    else if (query.workCenterIds?.length)
+      request = request.in('work_center_id', query.workCenterIds)
+    return await responseHandle<MesExecutionAttendance[]>(
+      () => (options?.signal ? request.abortSignal(options.signal) : request),
+      readOptions
     )
-    .gte('clock_in_at', `${query.dateRange?.[0] || '1900-01-01'}T00:00:00+08:00`)
-    .lte('clock_in_at', `${query.dateRange?.[1] || '9999-12-31'}T23:59:59+08:00`)
-    .order('clock_in_at', { ascending: false })
-    .limit(10000)
-  if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
-  if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
-  else if (query.workCenterIds?.length) request = request.in('work_center_id', query.workCenterIds)
-  const { data } = await responseHandle<MesExecutionAttendance[]>(() => request, readOptions)
+  })
+  if (error) throw error
   return data ?? []
 }
 
