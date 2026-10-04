@@ -1,1 +1,0 @@
-import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-BV7Lsdgt.js";import{t as r}from"./report-ledger-BvGKVZpK.js";var i=e({name:`MesReportDetail`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{mode:`detail`}))}});export{i as default};
