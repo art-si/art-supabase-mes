@@ -5,6 +5,7 @@ allowBuilds:
   esbuild: true
   vue-demi: true
 overrides:
+  '@tiptap/extension-floating-menu': 3.31.0
   '@vue/compiler-sfc': 3.5.40
   element-plus: 2.14.3
   pinia: 3.0.4

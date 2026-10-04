@@ -1,0 +1,1 @@
+import{R as e,r as t,t as n}from"./_baseForOwn-CwZsvg6Z.js";function r(t,n,r){n==`__proto__`&&e?e(t,n,{configurable:!0,enumerable:!0,value:r,writable:!0}):t[n]=r}function i(e,i){var a={};return i=t(i,3),n(e,function(e,t,n){r(a,t,i(e,t,n))}),a}export{r as n,i as t};

@@ -116,7 +116,7 @@ async function findTaskIdsForKeyword(keyword: string, tenantId?: string | null) 
     const related = await responseHandle<Array<{ id: string }>>(() => relatedQuery, readOptions)
     taskIds.push(...(related.data ?? []).map((item) => item.id))
   }
-  return [...new Set(taskIds)]
+  return uniq(taskIds)
 }
 
 export async function fetchExecutionTasks(query: MesExecutionListQuery) {

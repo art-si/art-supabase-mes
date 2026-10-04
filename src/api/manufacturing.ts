@@ -926,7 +926,7 @@ async function fetchMesMaterialDetails(
       .in('id', ids)
     return options?.signal ? query.abortSignal(options.signal) : query
   }, readOptions)
-  const groupIds = [...new Set((data ?? []).map((item) => item.attributeGroupId).filter(Boolean))]
+  const groupIds = uniq((data ?? []).map((item) => item.attributeGroupId).filter(Boolean))
   const { data: attributes } = groupIds.length
     ? await responseHandle<Array<{ groupId: string; attributeKey: string; attributeName: string }>>(
         () => {
