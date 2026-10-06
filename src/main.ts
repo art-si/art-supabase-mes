@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 import { bootstrapPlatformApp } from '@/bootstrap'
-import { registerApplicationViewModules } from '@/router/core/ComponentLoader'
+import { registerApplicationViewModules } from '@/router/core/component-loader'
 
 type RouteComponentModule = { default: Component }
 

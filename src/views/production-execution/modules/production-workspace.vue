@@ -479,7 +479,8 @@
       <ArtDialog ref="clockDialogRef" size="sm" :show-fullscreen-button="false"
         ><ArtForm
           ref="clockFormRef"
-          v-model="clockForm"
+          :model-value="clockForm"
+          @update:model-value="replaceReactiveModel(clockForm, $event)"
           :items="[]"
           :rules="clockRules"
           custom-layout
@@ -497,7 +498,8 @@
       <ArtDialog ref="feedDialogRef" size="md" :show-fullscreen-button="false"
         ><ArtForm
           ref="feedFormRef"
-          v-model="feedForm"
+          :model-value="feedForm"
+          @update:model-value="replaceReactiveModel(feedForm, $event)"
           :items="[]"
           :rules="feedRules"
           custom-layout
@@ -537,6 +539,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'

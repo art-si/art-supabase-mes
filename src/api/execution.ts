@@ -69,70 +69,25 @@ export async function fetchExecutionCalendarShifts(
   )
 }
 
-async function findTaskIdsForKeyword(keyword: string, tenantId?: string | null) {
-  const text = keyword.trim()
-  if (!text) return []
-  let orderQuery = supabase
-    .from('mes_work_order')
-    .select('id')
-    .is('deleted_at', null)
-    .or(
-      buildOrIlikeFilter(
-        [
-          'work_order_no',
-          'material_code_snapshot',
-          'material_name_snapshot',
-          'project_name_snapshot',
-          'specification_snapshot'
-        ],
-        text
-      )
-    )
-    .limit(1000)
-  let taskQuery = supabase
-    .from('mes_operation_task')
-    .select('id')
-    .is('deleted_at', null)
-    .or(buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], text))
-    .limit(1000)
-  if (tenantId) {
-    orderQuery = orderQuery.eq('tenant_id', tenantId)
-    taskQuery = taskQuery.eq('tenant_id', tenantId)
-  }
-  const [orders, tasks] = await Promise.all([
-    responseHandle<Array<{ id: string }>>(() => orderQuery, readOptions),
-    responseHandle<Array<{ id: string }>>(() => taskQuery, readOptions)
-  ])
-  const orderIds = (orders.data ?? []).map((item) => item.id)
-  const taskIds = (tasks.data ?? []).map((item) => item.id)
-  if (orderIds.length) {
-    let relatedQuery = supabase
-      .from('mes_operation_task')
-      .select('id')
-      .is('deleted_at', null)
-      .in('work_order_id', orderIds)
-      .limit(1000)
-    if (tenantId) relatedQuery = relatedQuery.eq('tenant_id', tenantId)
-    const related = await responseHandle<Array<{ id: string }>>(() => relatedQuery, readOptions)
-    taskIds.push(...(related.data ?? []).map((item) => item.id))
-  }
-  return uniq(taskIds)
-}
-
 export async function fetchExecutionTasks(query: MesExecutionListQuery) {
-  const keywordTaskIds = query.keyword?.trim()
-    ? await findTaskIdsForKeyword(query.keyword, query.tenantId)
-    : null
-  if (keywordTaskIds && !keywordTaskIds.length) return { data: [] as MesExecutionTask[], total: 0 }
+  const keyword = query.keyword?.trim()
+  const keywordFilter = keyword
+    ? `${buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], keyword)},orderSearch.not.is.null`
+    : ''
+  let statusFilter = ''
+  const select = query.shiftName
+    ? `${taskSelect},shiftFilter:mes_operation_task_allocation()`
+    : taskSelect
   let request = supabase
     .from('mes_operation_task')
     .select(
-      query.shiftName ? `${taskSelect},shiftFilter:mes_operation_task_allocation()` : taskSelect,
+      keyword ? `${select},orderSearch:mes_work_order!mes_operation_task_order_fk()` : select,
       { count: 'exact' }
     )
     .is('deleted_at', null)
     .in('scheduling_status', ['scheduled', 'no_schedule'])
     .order('required_completion_date', { ascending: true, nullsFirst: false })
+    .order('id')
     .range((query.current - 1) * query.size, query.current * query.size - 1)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
@@ -143,7 +98,27 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
       .not('shiftFilter', 'is', null)
     if (query.tenantId) request = request.eq('shiftFilter.tenant_id', query.tenantId)
   }
-  if (keywordTaskIds) request = request.in('id', keywordTaskIds)
+  if (keyword) {
+    request = request
+      .is('orderSearch.deleted_at', null)
+      .or(
+        buildOrIlikeFilter(
+          [
+            'work_order_no',
+            'material_code_snapshot',
+            'material_name_snapshot',
+            'project_name_snapshot',
+            'specification_snapshot'
+          ],
+          keyword
+        ),
+        { referencedTable: 'orderSearch' }
+      )
+      .or(
+        `${buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], keyword)},orderSearch.not.is.null`
+      )
+    if (query.tenantId) request = request.eq('orderSearch.tenant_id', query.tenantId)
+  }
   if (query.statuses?.length) {
     const statuses = new Set(query.statuses)
     if (statuses.has('unfinished')) {
@@ -167,9 +142,13 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
     else if (!unreported && !partial && reported)
       request = request.in('operation_status', ['completed', 'closed'])
     else if (unreported && !partial && reported)
-      request = request.or('completed_quantity.eq.0,operation_status.in.(completed,closed)')
+      statusFilter = 'completed_quantity.eq.0,operation_status.in.(completed,closed)'
     else if (!unreported && partial && reported) request = request.gt('completed_quantity', 0)
   }
+  if (statusFilter)
+    request = request.or(
+      keywordFilter ? `and(or(${keywordFilter}),or(${statusFilter}))` : statusFilter
+    )
   if (query.dateRange?.[0]) request = request.gte('required_completion_date', query.dateRange[0])
   if (query.dateRange?.[1]) request = request.lte('required_completion_date', query.dateRange[1])
   const { data, total } = await responseHandle<MesExecutionTask[]>(() => request, readOptions)
@@ -353,16 +332,15 @@ export async function reviewProductionReport(
 }
 
 export async function fetchProductionReports(query: MesExecutionListQuery) {
-  const taskIds = query.keyword?.trim()
-    ? await findTaskIdsForKeyword(query.keyword, query.tenantId)
-    : []
+  const keyword = query.keyword?.trim()
   let request = supabase
     .from('mes_production_report')
     .select(
-      `*,task:mes_operation_task!mes_production_report_task_id_fkey(${taskSelect}),workCenter:mdm_work_center!mes_production_report_work_center_id_fkey(code,name),defects:mes_report_defect(id,reason_id,category,quantity,remark,reason:mes_defect_reason!mes_report_defect_reason_id_fkey(code,name))`,
+      `*,task:mes_operation_task!mes_production_report_task_id_fkey(${taskSelect}),workCenter:mdm_work_center!mes_production_report_work_center_id_fkey(code,name),defects:mes_report_defect(id,reason_id,category,quantity,remark,reason:mes_defect_reason!mes_report_defect_reason_id_fkey(code,name))${keyword ? ',taskSearch:mes_operation_task!mes_production_report_task_id_fkey(orderSearch:mes_work_order!mes_operation_task_order_fk())' : ''}`,
       { count: 'exact' }
     )
     .order('reported_at', { ascending: false })
+    .order('id')
     .range((query.current - 1) * query.size, query.current * query.size - 1)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.taskId) request = request.eq('task_id', query.taskId)
@@ -374,25 +352,47 @@ export async function fetchProductionReports(query: MesExecutionListQuery) {
     request = request.gte('reported_at', `${query.dateRange[0]}T00:00:00+08:00`)
   if (query.dateRange?.[1])
     request = request.lte('reported_at', `${query.dateRange[1]}T23:59:59+08:00`)
-  if (query.keyword?.trim())
-    request = request.or(
-      `${buildOrIlikeFilter(['reporter_name'], query.keyword.trim())}${taskIds.length ? `,task_id.in.(${taskIds.join(',')})` : ''}`
-    )
+  if (keyword) {
+    request = request
+      .is('taskSearch.deleted_at', null)
+      .is('taskSearch.orderSearch.deleted_at', null)
+      .or(
+        buildOrIlikeFilter(
+          [
+            'work_order_no',
+            'material_code_snapshot',
+            'material_name_snapshot',
+            'project_name_snapshot',
+            'specification_snapshot'
+          ],
+          keyword
+        ),
+        { referencedTable: 'taskSearch.orderSearch' }
+      )
+      .or(
+        `${buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], keyword)},orderSearch.not.is.null`,
+        { referencedTable: 'taskSearch' }
+      )
+      .or(`${buildOrIlikeFilter(['reporter_name'], keyword)},taskSearch.not.is.null`)
+    if (query.tenantId)
+      request = request
+        .eq('taskSearch.tenant_id', query.tenantId)
+        .eq('taskSearch.orderSearch.tenant_id', query.tenantId)
+  }
   const { data, total } = await responseHandle<MesProductionReport[]>(() => request, readOptions)
   return { data: data ?? [], total: total ?? 0 }
 }
 
 export async function fetchExecutionEvents(query: MesExecutionListQuery) {
-  const taskIds = query.keyword?.trim()
-    ? await findTaskIdsForKeyword(query.keyword, query.tenantId)
-    : []
+  const keyword = query.keyword?.trim()
   let request = supabase
     .from('mes_execution_event')
     .select(
-      `*,task:mes_operation_task!mes_execution_event_task_id_fkey(${taskSelect}),workCenter:mdm_work_center!mes_execution_event_work_center_id_fkey(code,name),handler:mdm_production_personnel!mes_execution_event_handler_person_id_fkey(name,employee_no)`,
+      `*,task:mes_operation_task!mes_execution_event_task_id_fkey(${taskSelect}),workCenter:mdm_work_center!mes_execution_event_work_center_id_fkey(code,name),handler:mdm_production_personnel!mes_execution_event_handler_person_id_fkey(name,employee_no)${keyword ? ',taskSearch:mes_operation_task!mes_execution_event_task_id_fkey(orderSearch:mes_work_order!mes_operation_task_order_fk())' : ''}`,
       { count: 'exact' }
     )
     .order('occurred_at', { ascending: false })
+    .order('id')
     .range((query.current - 1) * query.size, query.current * query.size - 1)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.kinds?.length) request = request.in('kind', query.kinds)
@@ -404,10 +404,35 @@ export async function fetchExecutionEvents(query: MesExecutionListQuery) {
     request = request.gte('occurred_at', `${query.dateRange[0]}T00:00:00+08:00`)
   if (query.dateRange?.[1])
     request = request.lte('occurred_at', `${query.dateRange[1]}T23:59:59+08:00`)
-  if (query.keyword?.trim())
-    request = request.or(
-      `${buildOrIlikeFilter(['title', 'remark', 'actor_name'], query.keyword.trim())}${taskIds.length ? `,task_id.in.(${taskIds.join(',')})` : ''}`
-    )
+  if (keyword) {
+    request = request
+      .is('taskSearch.deleted_at', null)
+      .is('taskSearch.orderSearch.deleted_at', null)
+      .or(
+        buildOrIlikeFilter(
+          [
+            'work_order_no',
+            'material_code_snapshot',
+            'material_name_snapshot',
+            'project_name_snapshot',
+            'specification_snapshot'
+          ],
+          keyword
+        ),
+        { referencedTable: 'taskSearch.orderSearch' }
+      )
+      .or(
+        `${buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], keyword)},orderSearch.not.is.null`,
+        { referencedTable: 'taskSearch' }
+      )
+      .or(
+        `${buildOrIlikeFilter(['title', 'remark', 'actor_name'], keyword)},taskSearch.not.is.null`
+      )
+    if (query.tenantId)
+      request = request
+        .eq('taskSearch.tenant_id', query.tenantId)
+        .eq('taskSearch.orderSearch.tenant_id', query.tenantId)
+  }
   const { data, total } = await responseHandle<MesExecutionEvent[]>(() => request, readOptions)
   return { data: data ?? [], total: total ?? 0 }
 }

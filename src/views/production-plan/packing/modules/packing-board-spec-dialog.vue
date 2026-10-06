@@ -15,7 +15,8 @@
         show-icon
       />
       <ArtForm
-        v-model="model"
+        :model-value="model"
+        @update:model-value="replaceReactiveModel(model, $event)"
         :items="items"
         :span="12"
         :gutter="24"
@@ -28,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'

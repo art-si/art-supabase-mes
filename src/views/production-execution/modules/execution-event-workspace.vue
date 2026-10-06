@@ -670,7 +670,8 @@
       <ArtDialog ref="actionDialogRef" size="sm" :show-fullscreen-button="false">
         <ArtForm
           ref="actionFormRef"
-          v-model="actionForm"
+          :model-value="actionForm"
+          @update:model-value="replaceReactiveModel(actionForm, $event)"
           :items="[]"
           :rules="actionRules"
           :validate-on-rule-change="false"
@@ -786,6 +787,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'

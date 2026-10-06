@@ -2,7 +2,8 @@
   <ArtDialog ref="dialogRef" size="sm"
     ><ArtForm
       ref="formRef"
-      v-model="model"
+      :model-value="model"
+      @update:model-value="replaceReactiveModel(model, $event)"
       :items="items"
       :rules="rules"
       label-position="top"
@@ -11,6 +12,7 @@
   /></ArtDialog>
 </template>
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { computed, reactive, ref } from 'vue'

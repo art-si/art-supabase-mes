@@ -25,7 +25,8 @@
       </div>
       <ArtForm
         ref="formRef"
-        v-model="form"
+        :model-value="form"
+        @update:model-value="replaceReactiveModel(form, $event)"
         :items="[]"
         :rules="formRules"
         :validate-on-rule-change="false"
@@ -240,6 +241,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { computed, nextTick, reactive, ref } from 'vue'
   import { ElMessage, type FormRules } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'

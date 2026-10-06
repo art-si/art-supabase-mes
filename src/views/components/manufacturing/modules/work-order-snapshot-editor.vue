@@ -9,7 +9,8 @@
       />
       <ArtForm
         ref="formRef"
-        v-model="model"
+        :model-value="model"
+        @update:model-value="replaceReactiveModel(model, $event)"
         :items="items"
         :rules="rules"
         :span="12"
@@ -23,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { ElMessage } from 'element-plus'
   import { cloneDeep } from 'lodash-es'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'

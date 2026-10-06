@@ -1,1 +1,0 @@
-import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-BV7Lsdgt.js";import{t as r}from"./execution-event-workspace-A8TOAWS_.js";var i=e({name:`MesEquipment`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{mode:`equipment`}))}});export{i as default};

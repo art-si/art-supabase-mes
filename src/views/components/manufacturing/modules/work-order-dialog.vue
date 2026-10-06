@@ -44,7 +44,8 @@
       <ArtForm
         v-if="!readonly"
         ref="formRef"
-        v-model="model"
+        :model-value="model"
+        @update:model-value="replaceReactiveModel(model, $event)"
         :items="formItems"
         :rules="rules"
         :span="12"
@@ -114,7 +115,8 @@
       </ArtForm>
       <ArtForm
         v-if="!readonly && activeExtensionFields.length"
-        v-model="extensionValues"
+        :model-value="extensionValues"
+        @update:model-value="replaceReactiveModel(extensionValues, $event)"
         :items="extensionItems"
         :span="8"
         :gutter="20"
@@ -135,6 +137,7 @@
 </template>
 
 <script setup lang="ts">
+  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { ElMessage } from 'element-plus'

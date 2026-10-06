@@ -1,0 +1,1 @@
+import{r as e,t,z as n}from"./_baseForOwn-BLMXjs32.js";function r(e,t,r){t==`__proto__`&&n?n(e,t,{configurable:!0,enumerable:!0,value:r,writable:!0}):e[t]=r}function i(n,i){var a={};return i=e(i,3),t(n,function(e,t,n){r(a,t,i(e,t,n))}),a}export{r as n,i as t};
