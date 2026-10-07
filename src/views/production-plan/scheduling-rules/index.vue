@@ -205,7 +205,6 @@
   }
 
   .rule-page__name small {
-    font-family: var(--art-font-family-mono);
     color: var(--el-text-color-secondary);
   }
 

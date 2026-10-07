@@ -1,6 +1,6 @@
 import { useSupabase } from '@/hooks'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
-import { fetchAllRangePages } from '@/utils/supabase/pagination'
+import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
 import type { ApiRequestOptions } from '@/types/api/request'
 import { uniq } from 'lodash-es'
 import type {
@@ -70,6 +70,7 @@ export async function fetchExecutionCalendarShifts(
 }
 
 export async function fetchExecutionTasks(query: MesExecutionListQuery) {
+  const pageRange = buildSupabasePageRange(query)
   const keyword = query.keyword?.trim()
   const keywordFilter = keyword
     ? `${buildOrIlikeFilter(['task_no', 'operation_code', 'operation_name'], keyword)},orderSearch.not.is.null`
@@ -88,7 +89,7 @@ export async function fetchExecutionTasks(query: MesExecutionListQuery) {
     .in('scheduling_status', ['scheduled', 'no_schedule'])
     .order('required_completion_date', { ascending: true, nullsFirst: false })
     .order('id')
-    .range((query.current - 1) * query.size, query.current * query.size - 1)
+    .range(pageRange.from, pageRange.to)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
   else if (query.departmentIds?.length) request = request.in('department_id', query.departmentIds)
@@ -332,6 +333,7 @@ export async function reviewProductionReport(
 }
 
 export async function fetchProductionReports(query: MesExecutionListQuery) {
+  const pageRange = buildSupabasePageRange(query)
   const keyword = query.keyword?.trim()
   let request = supabase
     .from('mes_production_report')
@@ -341,7 +343,7 @@ export async function fetchProductionReports(query: MesExecutionListQuery) {
     )
     .order('reported_at', { ascending: false })
     .order('id')
-    .range((query.current - 1) * query.size, query.current * query.size - 1)
+    .range(pageRange.from, pageRange.to)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.taskId) request = request.eq('task_id', query.taskId)
   if (query.workCenterId) request = request.eq('work_center_id', query.workCenterId)
@@ -384,6 +386,7 @@ export async function fetchProductionReports(query: MesExecutionListQuery) {
 }
 
 export async function fetchExecutionEvents(query: MesExecutionListQuery) {
+  const pageRange = buildSupabasePageRange(query)
   const keyword = query.keyword?.trim()
   let request = supabase
     .from('mes_execution_event')
@@ -393,7 +396,7 @@ export async function fetchExecutionEvents(query: MesExecutionListQuery) {
     )
     .order('occurred_at', { ascending: false })
     .order('id')
-    .range((query.current - 1) * query.size, query.current * query.size - 1)
+    .range(pageRange.from, pageRange.to)
   if (query.tenantId) request = request.eq('tenant_id', query.tenantId)
   if (query.kinds?.length) request = request.in('kind', query.kinds)
   if (query.taskId) request = request.eq('task_id', query.taskId)

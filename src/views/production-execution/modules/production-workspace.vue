@@ -69,6 +69,7 @@
               v-model="completionFilter"
               multiple
               collapse-tags
+              collapse-tags-tooltip
               clearable
               placeholder="工序状态"
             >

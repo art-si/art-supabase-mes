@@ -334,6 +334,7 @@
         clearable: true,
         multiple: true,
         collapseTags: true,
+        collapseTagsTooltip: true,
         placeholder: '全部状态',
         options: mesMoldMountStatusOptions
       }

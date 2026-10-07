@@ -4,7 +4,7 @@ import { mapWithConcurrency } from '@/utils/async'
 import type { ApiRequestOptions } from '@/types/api/request'
 import { normalizeNullableText } from '@/utils/form/normalize'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
-import { fetchAllRangePages } from '@/utils/supabase/pagination'
+import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
 import type {
   MesListQuery,
   MesBatchResult,
@@ -53,6 +53,7 @@ const writeOptions = {
 }
 
 export async function fetchWorkOrders(params: MesListQuery, options?: { signal?: AbortSignal }) {
+  const pageRange = buildSupabasePageRange(params)
   let query = supabase
     .from('mes_work_order')
     .select(
@@ -60,7 +61,8 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
       { count: 'exact' }
     )
     .order('update_time', { ascending: false })
-    .range((params.current - 1) * params.size, params.current * params.size - 1)
+    .order('id')
+    .range(pageRange.from, pageRange.to)
   if (params.tenantId) query = query.eq('tenant_id', params.tenantId)
   if (params.recordId) query = query.eq('id', params.recordId)
   const statuses = (Array.isArray(params.status) ? params.status : [params.status]).filter(
@@ -431,13 +433,14 @@ export async function fetchOperationTasks(
   params: MesListQuery,
   options?: { signal?: AbortSignal }
 ) {
+  const pageRange = buildSupabasePageRange(params)
   let query = supabase
     .from('mes_operation_task')
     .select(
       '*,workOrder:mes_work_order!mes_operation_task_order_fk!inner(work_order_no,work_order_type_name_snapshot,project_name_snapshot,construction_no,planner_name_snapshot,dispatcher_name_snapshot,material_code_snapshot,material_name_snapshot,specification_snapshot,unit_snapshot,planned_start_date,planned_end_date,urgency,source,remark,special_requirement,tracking_no,follow_no,sales_order_no,customer_code,route_snapshot),department:mdm_production_department!mes_operation_task_department_fk(code,name),workCenter:mdm_work_center!mes_operation_task_center_fk(code,name),allocations:mes_operation_task_allocation(id,task_id,work_center_id,shift_schedule_id,shift_index,shift_name_snapshot,quantity,planned_start_date,planned_end_date,status)',
       { count: 'exact' }
     )
-    .range((params.current - 1) * params.size, params.current * params.size - 1)
+    .range(pageRange.from, pageRange.to)
   if (params.tenantId) query = query.eq('tenant_id', params.tenantId)
   if (!params.includeDeleted) query = query.is('deleted_at', null)
   const schedulingStatuses = (
@@ -476,6 +479,7 @@ export async function fetchOperationTasks(
   query = sortColumn
     ? query.order(sortColumn, { ascending: params.sortOrder !== 'descending' })
     : query.order('update_time', { ascending: false })
+  query = query.order('id')
   const { data, total } = await responseHandle<MesOperationTask[]>(
     () => (options?.signal ? query.abortSignal(options.signal) : query),
     readOptions

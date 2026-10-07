@@ -1,1 +1,0 @@
-import{k as e,mt as t,v as n}from"./runtime-core.esm-bundler-BV7Lsdgt.js";import{t as r}from"./defect-management-CCiY32dt.js";var i=e({name:`MesReportDefects`,__name:`index`,setup(e){return(e,i)=>(t(),n(r,{"initial-tab":`details`}))}});export{i as default};
