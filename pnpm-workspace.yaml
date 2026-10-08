@@ -4,10 +4,13 @@ allowBuilds:
   es5-ext: true
   esbuild: true
   vue-demi: true
+minimumReleaseAgeExclude:
+  - vue-router@5.4.0
 overrides:
   '@tiptap/extension-floating-menu': 3.31.0
-  '@vue/compiler-sfc': 3.5.40
-  element-plus: 2.14.3
-  pinia: 3.0.4
-  vue: 3.5.40
-  vue-router: 5.2.0
+  '@vue/compiler-sfc': 3.5.43
+  element-plus: 2.14.7
+  pinia: 4.0.3
+  vue: 3.5.43
+  vue-router: 5.4.0
+  'unplugin-element-plus>unplugin': 3.4.0

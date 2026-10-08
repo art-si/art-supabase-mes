@@ -12,6 +12,8 @@
   /></ArtDialog>
 </template>
 <script setup lang="ts">
+  import { toNameCodeOption } from '@/utils/form/option'
+
   import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
@@ -40,10 +42,7 @@
       label: '目标工作中心',
       type: 'select',
       span: 24,
-      options: centers.value.map((item) => ({
-        label: `${item.name} · ${item.code}`,
-        value: item.id
-      })),
+      options: centers.value.map(toNameCodeOption),
       props: { filterable: true, placeholder: '选择承接本工序的工作中心' },
       help: '排程后任务进入“已排程”，可继续现场执行。'
     },

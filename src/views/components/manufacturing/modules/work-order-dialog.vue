@@ -137,6 +137,8 @@
 </template>
 
 <script setup lang="ts">
+  import { toNameCodeOption } from '@/utils/form/option'
+
   import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
@@ -283,8 +285,7 @@
   const heading = computed(() =>
     readonly.value ? '工单详情' : currentId.value ? '编辑工单' : '新增工单'
   )
-  const option = (items: Array<{ id: string; code: string; name: string }>) =>
-    items.map((item) => ({ label: `${item.name} · ${item.code}`, value: item.id }))
+
   const locked = computed(() => readonly.value)
   const selectedWorkOrderType = computed(() =>
     references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
@@ -323,10 +324,7 @@
             : ('input' as const),
       options:
         field.valueType === 'material'
-          ? references.value.materials.map((item) => ({
-              label: `${item.code} · ${item.name}`,
-              value: item.id
-            }))
+          ? references.value.materials.map(toNameCodeOption)
           : undefined,
       props:
         field.valueType === 'number'
@@ -386,7 +384,7 @@
       key: 'workOrderTypeId',
       label: '工单类型',
       type: 'select',
-      options: option(references.value.documentTypes),
+      options: references.value.documentTypes.map(toNameCodeOption),
       props: {
         disabled: locked.value,
         clearable: true,
@@ -401,7 +399,7 @@
       key: 'projectId',
       label: projectRequired.value ? '项目 *' : '项目',
       type: 'select',
-      options: option(references.value.projects),
+      options: references.value.projects.map(toNameCodeOption),
       props: {
         disabled: locked.value,
         clearable: true,

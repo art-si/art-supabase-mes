@@ -1,6 +1,6 @@
 <template>
   <ArtDialog ref="dialogRef" size="lg">
-    <div class="rule-dialog">
+    <div class="rule-dialog grid gap-4">
       <ArtEntitySummary
         icon="ri:calendar-check-line"
         eyebrow="SCHEDULING POLICY"
@@ -191,10 +191,3 @@
   }
   defineExpose({ handleOpen })
 </script>
-
-<style scoped lang="scss">
-  .rule-dialog {
-    display: grid;
-    gap: var(--art-space-4);
-  }
-</style>

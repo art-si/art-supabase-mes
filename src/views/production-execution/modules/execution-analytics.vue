@@ -274,6 +274,7 @@
 </template>
 
 <script setup lang="ts">
+  import { uniq } from 'lodash-es'
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
@@ -449,7 +450,7 @@
           ? machineRows.value
           : centerRows.value
   )
-  const shifts = computed(() => [...new Set(allRows.value.map((row) => row.shift))])
+  const shifts = computed(() => uniq(allRows.value.map((row) => row.shift)))
   const visibleRows = computed(() =>
     allRows.value.filter((row) => {
       if (shiftName.value && row.shift !== shiftName.value) return false

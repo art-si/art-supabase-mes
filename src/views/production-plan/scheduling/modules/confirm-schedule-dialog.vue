@@ -21,6 +21,8 @@
 </template>
 
 <script setup lang="ts">
+  import { toNameCodeOption } from '@/utils/form/option'
+
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import dayjs from 'dayjs'
@@ -99,10 +101,7 @@
       label: '排产建议工作中心',
       type: 'select',
       span: 12,
-      options: centers.value.map((center) => ({
-        label: `${center.code} ${center.name}`,
-        value: center.id
-      })),
+      options: centers.value.map(toNameCodeOption),
       props: { filterable: true, placeholder: '选择承接工作中心', class: 'w-full!' }
     },
     {

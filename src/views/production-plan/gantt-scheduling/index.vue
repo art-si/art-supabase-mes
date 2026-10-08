@@ -205,6 +205,7 @@
 <script setup lang="ts">
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
+  import { uniq } from 'lodash-es'
   import { computed, reactive, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
@@ -388,9 +389,12 @@
   )
   const centerIdSet = computed(() => new Set(centersInScope.value.map((center) => center.id)))
   const timelineDates = computed(() =>
-    buildTimelineDates(state.calendarDays, filters.range[0], filters.range[1], [
-      ...new Set(centersInScope.value.map((center) => center.departmentId))
-    ])
+    buildTimelineDates(
+      state.calendarDays,
+      filters.range[0],
+      filters.range[1],
+      uniq(centersInScope.value.map((center) => center.departmentId))
+    )
   )
   const flatSlots = computed(() => timelineDates.value.flatMap((date) => date.shifts))
   const calendarDayMap = computed(() => buildCalendarDayMap(state.calendarDays))

@@ -260,6 +260,8 @@
 </template>
 
 <script setup lang="ts">
+  import { toNameCodeOption } from '@/utils/form/option'
+
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
@@ -430,10 +432,7 @@
         clearable: true,
         filterable: true,
         placeholder: '全部车间通用',
-        options: scope.departments.map((item) => ({
-          label: `${item.code} · ${item.name}`,
-          value: item.id
-        }))
+        options: scope.departments.map(toNameCodeOption)
       }
     },
     { key: 'code', label: '原因代码', type: 'input', props: { maxlength: 40 } },

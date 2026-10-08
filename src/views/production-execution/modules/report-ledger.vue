@@ -358,6 +358,7 @@
 <script setup lang="ts">
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
+  import { uniq } from 'lodash-es'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import { ElMessage } from 'element-plus'
@@ -512,9 +513,9 @@
   const detailReport = ref<MesProductionReport | null>(null)
   const detailDrawerRef = ref<ArtDrawerExpose<MesProductionReport>>()
   const formRef = ref<InstanceType<typeof ProductionReportForm>>()
-  const shifts = computed(() => [
-    ...new Set([...shiftOptions.value, ...rows.value.map((row) => row.shiftName)].filter(Boolean))
-  ])
+  const shifts = computed(() =>
+    uniq([...shiftOptions.value, ...rows.value.map((row) => row.shiftName)].filter(Boolean))
+  )
   const visibleRows = computed(() => rows.value)
   const rowIndex = (index: number) => (page.value - 1) * size.value + index + 1
   const formatTime = createDateTimeFormatter({ format: 'YYYY-MM-DD HH:mm', emptyText: '—' })
