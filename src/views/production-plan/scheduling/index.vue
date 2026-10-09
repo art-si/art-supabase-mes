@@ -110,7 +110,7 @@
           @retry="loadWorkspace"
         >
           <template #actions>
-            <BusinessWorkspaceFocusToggle v-if="focusMode" v-model="focusMode" />
+            <BusinessWorkspaceFocusToggle v-show="focusMode" v-model="focusMode" />
             <span class="scheduling-page__sync-state" role="status" aria-live="polite">
               <i :class="{ 'is-live': state.realtimeConnected }" />
               {{ state.realtimeConnected ? '实时同步' : '自动刷新' }} ·

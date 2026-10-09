@@ -91,7 +91,7 @@
             </div>
             <template v-for="metric in taskMetrics(task, group.center.id)" :key="metric.key">
               <strong class="schedule-board__quantity" :class="`is-${metric.key}`">
-                {{ formatQuantity(metric.value) }}
+                {{ formatNumberValue(metric.value || 0, 'zh-CN', { maximumFractionDigits: 2 }) }}
               </strong>
             </template>
             <div class="schedule-board__actions">
@@ -127,7 +127,11 @@
                   <span class="schedule-board__cell-value">
                     {{
                       showQuantities
-                        ? formatQuantity(allocationAt(task, group.center.id, slot)?.quantity || 0)
+                        ? formatNumberValue(
+                            allocationAt(task, group.center.id, slot)?.quantity || 0,
+                            'zh-CN',
+                            { maximumFractionDigits: 2 }
+                          )
                         : '已排'
                     }}
                   </span>
@@ -159,6 +163,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatNumberValue } from '@/utils/ui/format'
   import { computed, ref, watch } from 'vue'
   import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
   import ArtButtonMore, {
@@ -290,10 +295,6 @@
 
   function projectLabel(task: MesOperationTask): string {
     return task.workOrder?.projectNameSnapshot || `${task.operationCode} · ${task.operationName}`
-  }
-
-  function formatQuantity(value: number): string {
-    return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
   }
 
   function taskMetrics(task: MesOperationTask, centerId: string) {
@@ -462,7 +463,9 @@
   ): string {
     const allocation = allocationAt(task, center.id, slot)
     return `${slot.workDate}${slot.name}，${task.operationName}，${
-      allocation ? `计划数量 ${formatQuantity(Number(allocation.quantity))}` : '未排产'
+      allocation
+        ? `计划数量 ${formatNumberValue(Number(allocation.quantity) || 0, 'zh-CN', { maximumFractionDigits: 2 })}`
+        : '未排产'
     }`
   }
 
@@ -486,9 +489,9 @@
       `工序序列 / 工序号：${task.sequenceNo} / ${task.operationCode}`,
       `工序名称：${task.operationName}`,
       `要求完工日期：${task.requiredCompletionDate || '未设置'}`,
-      `数量：${allocation ? formatQuantity(Number(allocation.quantity)) : '未排产'}`,
-      `预计加工时间：${formatQuantity(Number(task.estimatedWorkMinutes || 0) / 60)} 小时`,
-      `理论班次产能：${formatQuantity(capacity)}`,
+      `数量：${allocation ? formatNumberValue(Number(allocation.quantity) || 0, 'zh-CN', { maximumFractionDigits: 2 }) : '未排产'}`,
+      `预计加工时间：${formatNumberValue(Number(task.estimatedWorkMinutes || 0) / 60 || 0, 'zh-CN', { maximumFractionDigits: 2 })} 小时`,
+      `理论班次产能：${formatNumberValue(capacity || 0, 'zh-CN', { maximumFractionDigits: 2 })}`,
       !canAdjustShiftPlan(task)
         ? task.schedulingStatus === 'no_schedule'
           ? '该工序任务为无需排产状态，不可调整班次计划'

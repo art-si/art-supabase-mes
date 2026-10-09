@@ -787,6 +787,7 @@
 </template>
 
 <script setup lang="ts">
+  import { createDateTimeFormatter } from '@/utils/ui/format'
   import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
@@ -1273,8 +1274,11 @@
     taskOptions.value.find((item) => item.id === form.value.taskId)
   )
   const rowIndex = (index: number) => (page.value - 1) * size.value + index + 1
-  const formatDateTime = (value: string | null | undefined) =>
-    value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—'
+  const formatDateTime = createDateTimeFormatter({
+    format: 'YYYY-MM-DD HH:mm',
+    emptyText: '—',
+    invalidText: '—'
+  })
   const durationHours = (from: string, to: string | null) =>
     to ? `${(Math.max(0, dayjs(to).diff(dayjs(from), 'minute')) / 60).toFixed(2)} h` : '—'
   const statusLabel = (value: string) =>

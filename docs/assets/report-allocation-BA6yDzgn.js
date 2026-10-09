@@ -1,1 +1,0 @@
-import{H as e,S as t,p as n}from"./runtime-core.esm-bundler-jxzlpws6.js";import{t as r}from"./report-ledger-Cxlgf0_Y.js";var i=t({name:`MesReportAllocation`,__name:`index`,setup(t){return(t,i)=>(e(),n(r,{mode:`allocation`}))}});export{i as default};

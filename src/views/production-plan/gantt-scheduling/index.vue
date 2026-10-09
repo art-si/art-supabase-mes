@@ -65,7 +65,7 @@
                 @click="scope.collapsed = false"
               />
             </ArtTooltip>
-            <BusinessWorkspaceFocusToggle v-if="focusMode" v-model="focusMode" />
+            <BusinessWorkspaceFocusToggle v-show="focusMode" v-model="focusMode" />
             <ArtTooltip content="刷新排产数据" placement="bottom">
               <ArtIconButton
                 icon="ri:refresh-line"

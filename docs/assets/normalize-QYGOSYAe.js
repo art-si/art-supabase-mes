@@ -1,0 +1,1 @@
+function e(e){return e?.trim()??``}function t(t){return e(t)||null}function n(e){return(Array.isArray(e)?e:e==null?[]:[e]).map(String)}function r(e){let t=Array.isArray(e)?e[0]:e;return t==null?void 0:String(t)}export{r as n,n as r,t};

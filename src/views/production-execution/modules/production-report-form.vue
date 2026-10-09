@@ -101,7 +101,12 @@
               <span v-if="editingReport" class="report-form__shift-history">
                 {{ form.shiftName || '未记录班次' }}
               </span>
-              <ElSkeleton v-else-if="shiftLoading" :rows="1" animated />
+              <ArtAsyncState
+                v-else-if="shiftLoading"
+                :loading="shiftLoading"
+                :min-height="96"
+                size="compact"
+              />
               <div v-else-if="shiftError" class="report-form__shift-feedback" role="alert">
                 <span>{{ shiftError }}</span>
                 <ElButton link type="primary" @click="retryShifts">重试</ElButton>
@@ -241,6 +246,7 @@
 </template>
 
 <script setup lang="ts">
+  import ArtAsyncState from '@/components/core/feedback/art-async-state/index.vue'
   import { replaceReactiveModel } from '@/utils/form/model'
   import { computed, nextTick, reactive, ref } from 'vue'
   import { ElMessage, type FormRules } from 'element-plus'

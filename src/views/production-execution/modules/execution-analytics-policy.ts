@@ -1,3 +1,4 @@
+import { createDateTimeFormatter } from '@/utils/ui/format'
 import dayjs from 'dayjs'
 import type {
   MesExecutionAttendance,
@@ -52,7 +53,7 @@ export interface PersonEfficiencyRow {
   onPostHours: number
 }
 
-const day = (value: string | null | undefined) => (value ? dayjs(value).format('YYYY-MM-DD') : '')
+const day = createDateTimeFormatter({ format: 'YYYY-MM-DD', emptyText: '', invalidText: '' })
 const isInRange = (value: string, range: [string, string]) => value >= range[0] && value <= range[1]
 const reportWorkDate = (report: MesProductionReport) => {
   const started = dayjs(report.startedAt)

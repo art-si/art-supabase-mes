@@ -540,6 +540,7 @@
 </template>
 
 <script setup lang="ts">
+  import { createDateTimeFormatter } from '@/utils/ui/format'
   import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
@@ -848,8 +849,11 @@
       : item.completedQuantity > 0
         ? '部分报工'
         : '未报工'
-  const formatDateTime = (value: string | null | undefined) =>
-    value ? dayjs(value).format('MM-DD HH:mm') : '—'
+  const formatDateTime = createDateTimeFormatter({
+    format: 'MM-DD HH:mm',
+    emptyText: '—',
+    invalidText: '—'
+  })
 
   let taskVersion = 0
   async function loadTasks() {

@@ -1,0 +1,1 @@
+import{H as e,S as t,p as n}from"./runtime-core.esm-bundler-jxzlpws6.js";import{t as r}from"./execution-event-workspace-BaUDlNsD.js";var i=t({name:`MesException`,__name:`index`,setup(t){return(t,i)=>(e(),n(r,{mode:`exception`}))}});export{i as default};

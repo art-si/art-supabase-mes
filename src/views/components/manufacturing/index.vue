@@ -142,6 +142,8 @@
 </template>
 
 <script setup lang="tsx">
+  import { createDateTimeFormatter } from '@/utils/ui/format'
+
   import dayjs from 'dayjs'
   import { ElMessage, ElTag } from 'element-plus'
   import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
@@ -214,6 +216,12 @@
   import type { TaskDetailDialogOpenData } from './modules/task-detail-dialog.vue'
   import type { TaskAnnotationDialogOpenData } from './modules/task-annotation-dialog.vue'
   import type { TaskDueDateDialogOpenData } from './modules/task-due-date-dialog.vue'
+
+  const formatTableDateTime = createDateTimeFormatter({
+    format: 'YYYY-MM-DD HH:mm',
+    emptyText: '--',
+    invalidText: '--'
+  })
 
   defineOptions({ name: 'MesManufacturing' })
   const declaredPermissions = [
@@ -655,7 +663,7 @@
               { key: 'plannedEndDate', title: '计划结束日期', required: true },
               { key: 'salesOrderNo', title: '销售订单号' }
             ],
-            importTransformer: (rows) =>
+            importRecordTransformer: (rows) =>
               rows.map((row) => ({
                 ...row,
                 tenantId: defaultWriteTenantId.value || '',
@@ -866,8 +874,7 @@
     const meta = statusMeta[status] || { label: status, type: 'info' as const }
     const dictCode =
       explicitDictCode || (isWorkOrder.value ? 'mesWorkOrderStatus' : 'mesOperationTaskStatus')
-    const label =
-      getDictMap.value[dictCode]?.find((item) => item.value === status)?.label || meta.label
+    const label = userStore.getDictItemByValue(dictCode, status)?.label || meta.label
     return (
       <ElTag type={meta.type} effect="light">
         {label}
@@ -1007,7 +1014,7 @@
       prop: 'updateTime',
       label: '更新时间',
       width: 164,
-      formatter: (row) => dayjs(row.updateTime).format('YYYY-MM-DD HH:mm')
+      formatter: (row) => formatTableDateTime(row.updateTime)
     },
     {
       prop: 'operation',
@@ -1197,7 +1204,7 @@
       prop: 'createTime',
       label: '工序创建日期',
       width: 164,
-      formatter: (row) => dayjs(row.createTime).format('YYYY-MM-DD HH:mm')
+      formatter: (row) => formatTableDateTime(row.createTime)
     },
     {
       prop: 'workOrderStartDate',
