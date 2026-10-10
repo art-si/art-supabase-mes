@@ -3,6 +3,7 @@
     <section v-for="section in sections" :key="section.title" class="work-order-detail__section">
       <ArtSectionTitle :title="section.title" />
       <ArtDescriptions
+        :label-width="132"
         :data="record"
         :items="section.items"
         :columns="2"
@@ -222,10 +223,6 @@
 
     &__section {
       min-width: 0;
-    }
-
-    :deep(.el-descriptions__label) {
-      width: 132px;
     }
   }
 </style>

@@ -1,1 +1,0 @@
-import{H as e,S as t,p as n}from"./runtime-core.esm-bundler-jxzlpws6.js";import{t as r}from"./execution-event-workspace-BaUDlNsD.js";var i=t({name:`MesMold`,__name:`index`,setup(t){return(t,i)=>(e(),n(r,{mode:`mold`}))}});export{i as default};

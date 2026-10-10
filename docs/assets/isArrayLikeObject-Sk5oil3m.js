@@ -1,0 +1,1 @@
+import{H as e,M as t}from"./_baseIsEqual-BfTTsQfE.js";import{c as n,d as r,l as i}from"./_baseForOwn-DQx4JxtE.js";function a(e,t){return i(n(e,t,r),e+``)}function o(n){return e(n)&&t(n)}export{a as n,o as t};

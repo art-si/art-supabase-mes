@@ -18,21 +18,18 @@
 </template>
 
 <script setup lang="ts">
+  import { usePrintSheet } from '@/hooks/core/usePrintSheet'
   import QrcodeVue from 'qrcode.vue'
   import type { MesWorkOrder } from '@mes/api'
   import { workOrderQrValue } from './work-order-qr'
 
   const orders = shallowRef<MesWorkOrder[]>([])
+  const { print: printSheet } = usePrintSheet('is-work-order-qr-label-printing', () => {
+    orders.value = []
+  })
   const print = async (rows: MesWorkOrder[]): Promise<void> => {
     orders.value = rows
-    document.body.classList.add('is-work-order-qr-label-printing')
-    await nextTick()
-    const cleanup = () => {
-      document.body.classList.remove('is-work-order-qr-label-printing')
-      orders.value = []
-    }
-    window.addEventListener('afterprint', cleanup, { once: true })
-    window.print()
+    await printSheet()
   }
   defineExpose({ print })
 </script>

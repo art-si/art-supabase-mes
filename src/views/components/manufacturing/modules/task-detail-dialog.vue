@@ -11,6 +11,7 @@
       <section v-for="section in sections" :key="section.title" class="task-detail__section">
         <ArtSectionTitle :title="section.title" />
         <ArtDescriptions
+          :label-width="132"
           :data="record"
           :items="section.items"
           :columns="2"
@@ -359,9 +360,5 @@
   .task-detail {
     display: grid;
     gap: 22px;
-
-    :deep(.el-descriptions__label) {
-      width: 132px;
-    }
   }
 </style>

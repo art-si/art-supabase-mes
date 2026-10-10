@@ -2,8 +2,9 @@
   <ArtPermissionGuard :permission="`${routeName}:View`" :resource-name="title">
     <div class="manufacturing-page business-workspace-page art-full-height">
       <MasterDeleteProcessingNotice
+        :table="tableRef"
         v-if="targetWorkOrderId"
-        action-hint="当前列表已定位到关联生产工单。请核对并处理引用，完成后返回原页面继续删除。"
+        action-hint="请核对关联生产工单。请核对并处理引用，完成后返回原页面继续删除。"
       />
       <BusinessWorkspaceHeader
         eyebrow="MANUFACTURING EXECUTION"

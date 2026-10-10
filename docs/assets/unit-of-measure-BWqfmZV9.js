@@ -1,1 +1,0 @@
-import{R as e}from"./index-Bg_MSei_.js";var{supabase:t,responseHandle:n}=e();async function r(e){return n(()=>t.rpc(`material_unit_compatibility_options`,{p_source_code:e??null}),{breakReturn:!0,showErrorMessage:!1,errorMessage:`计量单位加载失败，请重试`})}export{r as fetchMaterialUnitCompatibilityOptions};

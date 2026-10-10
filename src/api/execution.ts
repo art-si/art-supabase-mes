@@ -1,4 +1,4 @@
-import { useSupabase } from '@/hooks'
+import { useSupabase } from '@/hooks/core/useSupabase'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
 import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
 import type { ApiRequestOptions } from '@/types/api/request'

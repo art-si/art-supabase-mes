@@ -1,4 +1,4 @@
-import { useSupabase } from '@/hooks'
+import { useSupabase } from '@/hooks/core/useSupabase'
 import { normalizeNullableText } from '@/utils/form/normalize'
 
 export type MesPmisEquipmentKind = 'inspection' | 'patrol' | 'maintenance'

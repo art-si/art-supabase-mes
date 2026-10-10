@@ -1,1 +1,0 @@
-import{H as e,S as t,p as n}from"./runtime-core.esm-bundler-jxzlpws6.js";import{t as r}from"./report-ledger-IlqiXJET.js";var i=t({name:`MesReportApproval`,__name:`index`,setup(t){return(t,i)=>(e(),n(r,{mode:`approval`}))}});export{i as default};

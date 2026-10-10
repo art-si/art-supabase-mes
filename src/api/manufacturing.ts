@@ -1,4 +1,4 @@
-import { useSupabase } from '@/hooks'
+import { useSupabase } from '@/hooks/core/useSupabase'
 import { groupBy, uniq } from 'lodash-es'
 import { mapWithConcurrency } from '@/utils/async'
 import type { ApiRequestOptions } from '@/types/api/request'

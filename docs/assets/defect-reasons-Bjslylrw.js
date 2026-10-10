@@ -1,1 +1,0 @@
-import{H as e,S as t,p as n}from"./runtime-core.esm-bundler-jxzlpws6.js";import{t as r}from"./defect-management-Sj_2aCSq.js";var i=t({name:`MesDefectReasons`,__name:`index`,setup(t){return(t,i)=>(e(),n(r,{"initial-tab":`reasons`}))}});export{i as default};

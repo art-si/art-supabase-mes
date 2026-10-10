@@ -1,4 +1,4 @@
-import { useSupabase } from '@/hooks'
+import { useSupabase } from '@/hooks/core/useSupabase'
 import { fetchAllRangePages } from '@/utils/supabase/pagination'
 
 export type BoardKind = 'PU_BOARD' | 'ROCK_BOARD'

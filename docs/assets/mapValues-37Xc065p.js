@@ -1,0 +1,1 @@
+import{c as e,l as t,r as n,s as r,t as i}from"./_baseForOwn-DQx4JxtE.js";import{a}from"./_baseSet-CurTC-w7.js";function o(e){return e!=null&&e.length?r(e,1):[]}function s(n){return t(e(n,void 0,o),n+``)}function c(e,t){var r={};return t=n(t,3),i(e,function(e,n,i){a(r,n,t(e,n,i))}),r}export{s as n,o as r,c as t};

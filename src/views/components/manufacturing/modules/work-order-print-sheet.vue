@@ -25,7 +25,7 @@
             >
             <div
               ><dt>数量</dt
-              ><dd>{{ quantity(order.orderQuantity) }} {{ order.unitSnapshot }}</dd></div
+              ><dd>{{ formatNumberValue(order.orderQuantity) }} {{ order.unitSnapshot }}</dd></div
             >
             <div
               ><dt>计划员</dt><dd>{{ order.plannerNameSnapshot || '—' }}</dd></div
@@ -98,8 +98,8 @@
               <td>{{ step.controlCode || '—' }}</td>
               <td>{{ step.workCenterNames?.join('、') || '—' }}</td>
               <td>{{ operationQuantity(order, step) }}</td>
-              <td>{{ quantity(step.setupMinutes) }}</td>
-              <td>{{ quantity(step.runProcessingMinutes) }}</td>
+              <td>{{ formatNumberValue(step.setupMinutes) }}</td>
+              <td>{{ formatNumberValue(step.runProcessingMinutes) }}</td>
               <td></td>
               <td>{{ step.firstInspection ? '是' : '' }}</td>
               <td></td><td></td><td></td><td></td>
@@ -119,32 +119,27 @@
 </template>
 
 <script setup lang="ts">
-  import dayjs from 'dayjs'
+  import { usePrintSheet } from '@/hooks/core/usePrintSheet'
   import QrcodeVue from 'qrcode.vue'
   import logo from '@/assets/images/common/logo-full-light.png'
-  import { formatNumberValue } from '@/utils/ui'
+  import { formatDateTimeValue, formatNumberValue } from '@/utils/ui'
   import type { MesWorkOrder, MesWorkOrderRouteStepSnapshot } from '@mes/api'
   import { calculateOperationQuantity } from './work-order-plan'
   import { workOrderQrValue } from './work-order-qr'
 
   const orders = shallowRef<MesWorkOrder[]>([])
-  const printDate = computed(() => dayjs().format('YYYY-MM-DD'))
+  const printDate = ref('')
 
-  const quantity = (value: number): string => formatNumberValue(value)
   const operationQuantity = (order: MesWorkOrder, step: MesWorkOrderRouteStepSnapshot): string =>
     formatNumberValue(calculateOperationQuantity(order.orderQuantity, step.basicBatch))
 
+  const { print: printSheet } = usePrintSheet('is-work-order-printing', () => {
+    orders.value = []
+  })
   async function print(rows: MesWorkOrder[]): Promise<void> {
+    printDate.value = formatDateTimeValue(new Date(), { format: 'YYYY-MM-DD' })
     orders.value = rows
-    document.body.classList.add('is-work-order-printing')
-    await nextTick()
-
-    const cleanup = () => {
-      document.body.classList.remove('is-work-order-printing')
-      orders.value = []
-    }
-    window.addEventListener('afterprint', cleanup, { once: true })
-    window.print()
+    await printSheet()
   }
 
   defineExpose({ print })
