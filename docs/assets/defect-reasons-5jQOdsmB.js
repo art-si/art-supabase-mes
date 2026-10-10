@@ -1,1 +1,0 @@
-import{Tt as e,X as t,at as n}from"./dist-DmP4BFu_.js";import{t as r}from"./defect-management-DUPp_bFm.js";var i=n({name:`MesDefectReasons`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{"initial-tab":`reasons`}))}});export{i as default};

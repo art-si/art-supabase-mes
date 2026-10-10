@@ -34,6 +34,12 @@ function resolvePlatformRoot(): string {
 
 const platformRoot = resolvePlatformRoot()
 
+if (process.argv.includes('--typecheck')) {
+  const checkerPath = path.join(platformRoot, 'scripts/module-typecheck.mjs')
+  const { typecheckModule } = await import(pathToFileURL(checkerPath).href)
+  process.exitCode = typecheckModule({ applicationRoot, platformRoot })
+}
+
 export default defineConfig(async ({ mode }) => {
   const factoryPath = path.join(platformRoot, 'scripts/module-vite-config.mjs')
   const { createModuleViteConfig } = await import(pathToFileURL(factoryPath).href)
