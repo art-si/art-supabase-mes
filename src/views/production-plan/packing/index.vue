@@ -230,7 +230,7 @@
                     :pagination="false"
                     :row-class-name="boardRowClass"
                     height="100%"
-                    scrollbar-always-on
+                    :scrollbar-always-on="false"
                     row-key="id"
                     @selection-change="selectedBoards = $event"
                     size="small"
@@ -327,7 +327,7 @@
               :pagination="false"
               height="100%"
               size="small"
-              scrollbar-always-on
+              :scrollbar-always-on="false"
               row-key="key"
               @selection-change="selectResultRows"
             >

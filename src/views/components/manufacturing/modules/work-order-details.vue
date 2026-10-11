@@ -37,7 +37,7 @@
       row-key="clientId"
       :pagination="false"
       table-layout="fixed"
-      scrollbar-always-on
+      :scrollbar-always-on="false"
       :height="rows.length > 6 ? 360 : 'auto'"
       empty-text="暂无生产单明细"
       empty-description="点击新增明细，或下载模板后批量导入。"

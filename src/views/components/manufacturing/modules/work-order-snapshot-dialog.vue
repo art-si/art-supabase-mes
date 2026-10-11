@@ -49,7 +49,7 @@
           row-key="id"
           table-layout="fixed"
           :pagination="false"
-          scrollbar-always-on
+          :scrollbar-always-on="false"
         />
       </ArtSectionCard>
 
@@ -78,7 +78,7 @@
           row-key="id"
           table-layout="fixed"
           :pagination="false"
-          scrollbar-always-on
+          :scrollbar-always-on="false"
         />
       </ArtSectionCard>
     </div>
