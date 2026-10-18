@@ -1273,7 +1273,7 @@
       }
 
       &__workspace {
-        grid-template-columns: minmax(650px, 1fr) minmax(360px, 34%);
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 34%);
       }
     }
 
@@ -1288,7 +1288,7 @@
       }
 
       &__workspace {
-        grid-template-columns: minmax(610px, 1fr) 330px;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
       }
     }
   }

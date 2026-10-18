@@ -8,7 +8,7 @@
         }}</strong>
       </div>
       <div class="center-overview__actions">
-        <ArtTooltip content="仅显示空闲工作中心" placement="bottom">
+        <ArtTooltip content="仅显示空闲工作中心">
           <ArtIconButton
             icon="ri:filter-3-line"
             label="仅显示空闲工作中心"
@@ -17,7 +17,7 @@
             @click="idleOnly = !idleOnly"
           />
         </ArtTooltip>
-        <ArtTooltip content="显示物料名称和数量" placement="bottom">
+        <ArtTooltip content="显示物料名称和数量" placement="bottom-end">
           <ArtIconButton
             icon="ri:stack-line"
             label="显示物料名称和数量"
@@ -26,7 +26,7 @@
             @click="showMaterial = !showMaterial"
           />
         </ArtTooltip>
-        <ArtTooltip v-if="selectedCenter" content="返回工作中心总览" placement="bottom">
+        <ArtTooltip v-if="selectedCenter" content="返回工作中心总览" placement="bottom-end">
           <ArtIconButton
             icon="ri:arrow-left-line"
             label="返回工作中心总览"
@@ -104,42 +104,16 @@
             @click="emit('batch-close', detailSelectedIds)"
           />
         </div>
-        <article v-for="task in detailTasks" :key="task.id" class="center-overview__task">
-          <ElCheckbox
-            :model-value="detailSelectedIds.includes(task.id)"
-            :aria-label="`选择${task.taskNo}`"
-            @change="toggleDetailTask(task.id, Boolean($event))"
-          />
-          <div>
-            <strong>{{ task.taskNo }}</strong>
-            <span>
-              {{ task.workOrder?.workOrderTypeNameSnapshot || '生产工单' }} ·
-              {{ task.workOrder?.workOrderNo || '—' }}
-            </span>
-            <small>{{ task.workOrder?.projectNameSnapshot || '无项目名称' }}</small>
-          </div>
-          <div>
-            <strong>{{ task.workOrder?.materialNameSnapshot || '—' }}</strong>
-            <span>{{ task.workOrder?.materialCodeSnapshot || '—' }}</span>
-            <small
-              >{{ task.plannedStartDate || '待定' }} — {{ task.plannedEndDate || '待定' }}</small
-            >
-          </div>
-          <div class="center-overview__task-quantity">
-            <strong>{{ quantityForCenter(task) }} / {{ task.completedQuantity }}</strong>
-            <span>工序 / 已完成</span>
-            <small>预计 {{ hoursForCenter(task).toFixed(2) }} H</small>
-          </div>
-          <strong class="center-overview__unfinished">
-            {{ Math.max(quantityForCenter(task) - Number(task.completedQuantity || 0), 0) }}
-            <small>未完成</small>
-          </strong>
-        </article>
-        <ArtEmptyState
-          v-if="!detailTasks.length"
-          title="当前工作中心暂无匹配任务"
-          description="请清除关键字，或返回总览选择其他工作中心。"
-          :visual-size="72"
+        <ArtTable
+          class="center-overview__table"
+          row-key="id"
+          :data="detailTasks"
+          :columns="detailColumns"
+          :pagination="false"
+          :show-table-header="false"
+          empty-text="当前工作中心暂无匹配任务"
+          empty-description="请清除关键字，或返回总览选择其他工作中心。"
+          @selection-change="handleDetailSelectionChange"
         />
       </div>
     </ElScrollbar>
@@ -153,10 +127,12 @@
   </section>
 </template>
 
-<script setup lang="ts">
+<script setup lang="tsx">
   import { computed, ref, watch } from 'vue'
-  import ArtEmptyState from '@/components/core/feedback/art-empty-state/index.vue'
+  import { ElTag } from 'element-plus'
   import ArtIconButton from '@/components/core/widget/art-icon-button/index.vue'
+  import ArtTable from '@/components/core/tables/art-table/index.vue'
+  import type { ColumnOption } from '@/types'
   import type {
     MesOperationTask,
     MesProductionScopeCenter,
@@ -260,6 +236,59 @@
         ].some((value) => value?.toLocaleLowerCase().includes(keyword))
       })
   })
+  const detailColumns: ColumnOption<MesOperationTask>[] = [
+    { type: 'selection', width: 42, fixed: 'left' },
+    {
+      prop: 'taskNo',
+      label: '任务与物料',
+      minWidth: 190,
+      formatter: (task) => (
+        <span class="center-overview__task-info">
+          <strong title={task.taskNo}>{task.taskNo}</strong>
+          <span
+            title={`${task.workOrder?.materialNameSnapshot || '未命名物料'} · ${task.workOrder?.materialCodeSnapshot || '无编码'}`}
+          >
+            {task.workOrder?.materialNameSnapshot || '未命名物料'} ·{' '}
+            {task.workOrder?.materialCodeSnapshot || '无编码'}
+          </span>
+          <small
+            title={`${task.workOrder?.workOrderTypeNameSnapshot || '生产工单'} · ${task.workOrder?.workOrderNo || '无工单号'}`}
+          >
+            {task.workOrder?.workOrderTypeNameSnapshot || '生产工单'} ·{' '}
+            {task.workOrder?.workOrderNo || '无工单号'}
+          </small>
+          <small
+            title={`${task.workOrder?.projectNameSnapshot || '无项目名称'} · ${task.plannedStartDate || '待定'} — ${task.plannedEndDate || '待定'}`}
+          >
+            {task.workOrder?.projectNameSnapshot || '无项目名称'} ·{' '}
+            {task.plannedStartDate || '待定'} — {task.plannedEndDate || '待定'}
+          </small>
+        </span>
+      )
+    },
+    {
+      prop: 'completedQuantity',
+      label: '完成情况',
+      width: 126,
+      align: 'right',
+      formatter: (task) => {
+        const scheduled = quantityForCenter(task)
+        const completed = Number(task.completedQuantity || 0)
+        const remaining = Math.max(scheduled - completed, 0)
+        return (
+          <span class="center-overview__task-progress">
+            <ElTag size="small" type={remaining ? 'warning' : 'success'} effect="light">
+              {remaining ? `待完成 ${remaining}` : '已完成'}
+            </ElTag>
+            <span>
+              {completed} / {scheduled} 已完成
+            </span>
+            <small>预计 {hoursForCenter(task).toFixed(2)} H</small>
+          </span>
+        )
+      }
+    }
+  ]
   const footerStats = computed(() => ({
     tasks: props.tasks.filter((task) => Number(task.pendingScheduleQuantity || 0) > 0).length,
     hours: props.tasks.reduce(
@@ -311,10 +340,8 @@
     return taskHoursForCenter(task, selectedCenterId.value)
   }
 
-  function toggleDetailTask(id: string, checked: boolean): void {
-    detailSelectedIds.value = checked
-      ? [...detailSelectedIds.value, id]
-      : detailSelectedIds.value.filter((item) => item !== id)
+  function handleDetailSelectionChange(rows: MesOperationTask[]): void {
+    detailSelectedIds.value = rows.map((row) => row.id)
   }
 
   watch(selectedCenterId, () => {
@@ -544,8 +571,7 @@
     }
 
     &__detail {
-      display: grid;
-      gap: 0;
+      min-width: 0;
       padding: 12px;
     }
 
@@ -556,55 +582,67 @@
 
       .el-input {
         flex: 1;
-      }
-    }
-
-    &__task {
-      display: grid;
-      grid-template-columns: 28px minmax(150px, 1.2fr) minmax(150px, 1fr) 120px 72px;
-      gap: 12px;
-      align-items: center;
-      padding: 12px 8px;
-      border-bottom: 1px solid var(--el-border-color-lighter);
-
-      > div {
-        display: grid;
         min-width: 0;
-
-        strong,
-        span,
-        small {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        strong {
-          font-size: 12px;
-        }
-
-        span,
-        small {
-          font-size: 10px;
-          color: var(--el-text-color-secondary);
-        }
       }
     }
 
-    &__task-quantity,
-    &__unfinished {
-      text-align: right;
-    }
+    &__table {
+      width: 100%;
+      min-width: 0;
 
-    &__unfinished {
-      display: grid;
-      font-size: 15px;
-      font-variant-numeric: tabular-nums;
-      color: var(--el-color-danger);
+      :deep(.el-table__body-wrapper) {
+        overflow-x: hidden;
+      }
 
-      small {
+      :deep(.el-table__cell) {
+        padding: 10px 0;
+      }
+
+      :deep(.cell),
+      :deep(.art-table__cell-content),
+      :deep(.art-table__cell-value) {
+        min-width: 0;
+      }
+
+      :deep(.center-overview__task-info),
+      :deep(.center-overview__task-progress) {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        line-height: 1.35;
+      }
+
+      :deep(.center-overview__task-info strong) {
+        font-size: 12px;
+        color: var(--el-text-color-primary);
+        overflow-wrap: anywhere;
+      }
+
+      :deep(.center-overview__task-info span),
+      :deep(.center-overview__task-info small) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--el-text-color-secondary);
+        white-space: nowrap;
+      }
+
+      :deep(.center-overview__task-info span) {
+        font-size: 11px;
+        color: var(--el-text-color-regular);
+      }
+
+      :deep(.center-overview__task-info small) {
         font-size: 10px;
-        font-weight: 400;
+      }
+
+      :deep(.center-overview__task-progress) {
+        justify-items: end;
+        font-variant-numeric: tabular-nums;
+      }
+
+      :deep(.center-overview__task-progress span),
+      :deep(.center-overview__task-progress small) {
+        font-size: 10px;
         color: var(--el-text-color-secondary);
       }
     }
@@ -629,14 +667,6 @@
     @media (width <= 1100px) {
       &__grid {
         grid-template-columns: 1fr;
-      }
-
-      &__task {
-        grid-template-columns: 28px minmax(150px, 1fr) 110px 64px;
-
-        > div:nth-of-type(2) {
-          display: none;
-        }
       }
     }
   }
