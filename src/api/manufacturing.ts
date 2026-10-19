@@ -29,6 +29,7 @@ import type {
   MesSchedulingRuleInput,
   MesSchedulingContext,
   MesWorkOrder,
+  MesWorkOrderBomIssueTotal,
   MesWorkOrderBomSnapshot,
   MesWorkOrderRouteSnapshot,
   MesWorkOrderSnapshotReferences,
@@ -50,6 +51,16 @@ const writeOptions = {
   showMessage: true,
   message: '保存成功',
   errorMessage: '保存失败，请检查必填项、业务状态和当前权限'
+}
+
+export async function fetchWorkOrderBomIssueTotals(
+  workOrderId: string
+): Promise<MesWorkOrderBomIssueTotal[]> {
+  const { data } = await responseHandle<MesWorkOrderBomIssueTotal[]>(
+    () => supabase.rpc('wms_work_order_bom_issue_totals_secure', { p_work_order_id: workOrderId }),
+    { ...readOptions, showErrorMessage: false, errorMessage: '工单领料数量加载失败，请重试' }
+  )
+  return data ?? []
 }
 
 export async function fetchWorkOrders(params: MesListQuery, options?: { signal?: AbortSignal }) {

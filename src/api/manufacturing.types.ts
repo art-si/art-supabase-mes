@@ -160,6 +160,14 @@ export interface MesWorkOrderBomItemSnapshot {
   remark?: string | null
 }
 
+export interface MesWorkOrderBomIssueTotal {
+  sourceLineNo: string
+  selectedQuantity: number
+  issuedQuantity: number
+  goodReturnQuantity: number
+  incomingDefectReturnQuantity: number
+}
+
 export interface MesWorkOrderBomSnapshot {
   id: string
   bomCode: string

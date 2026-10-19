@@ -36,6 +36,11 @@
         empty-title="当前工单没有 BOM 组件"
         empty-description="请先维护该物料 BOM，再点击“重读 BOM/工艺”更新工单快照。"
       >
+        <ElAlert v-if="bomIssueLoadError" type="warning" :closable="false" show-icon class="mb-3">
+          工单领料数量暂未加载。<ElButton link type="primary" @click="loadBomIssueTotals"
+            >重新加载</ElButton
+          >
+        </ElAlert>
         <template v-if="canEdit" #actions>
           <ElButton v-auth="'MesWorkOrder:Edit'" type="primary" plain @click="openEditor('item')">
             <template #icon><ArtSvgIcon icon="ri:add-line" /></template>
@@ -109,6 +114,7 @@
   } from '@mes/api'
   import {
     fetchWorkOrderComponentTypes,
+    fetchWorkOrderBomIssueTotals,
     fetchWorkOrderSnapshotReferences,
     saveWorkOrderSnapshot
   } from '@mes/api'
@@ -127,6 +133,9 @@
   interface WorkOrderBomDisplayItem extends MesWorkOrderBomItemSnapshot {
     assignedOperationSequenceNo: number | null
     assignedOperationSequenceType: string
+    actualIssuedQuantity: number
+    unissuedQuantity: number
+    selectableQuantity: number
   }
 
   interface WorkOrderRouteDisplayStep extends MesWorkOrderRouteStepSnapshot {
@@ -141,6 +150,28 @@
   const userStore = useUserStore()
   const { confirmDelete } = useArtFeedback()
   const record = shallowRef<MesWorkOrder>()
+  const bomIssueTotals = shallowRef(
+    new Map<
+      string,
+      {
+        selectedQuantity: number
+        issuedQuantity: number
+        goodReturnQuantity: number
+        incomingDefectReturnQuantity: number
+      }
+    >()
+  )
+  const bomIssueLoadError = ref(false)
+  async function loadBomIssueTotals(): Promise<void> {
+    if (!record.value) return
+    bomIssueLoadError.value = false
+    try {
+      const rows = await fetchWorkOrderBomIssueTotals(record.value.id)
+      bomIssueTotals.value = new Map(rows.map((row) => [row.sourceLineNo, row]))
+    } catch {
+      bomIssueLoadError.value = true
+    }
+  }
   const mode = ref<WorkOrderSnapshotMode>('bom')
   const canEdit = ref(false)
   const references = shallowRef<MesWorkOrderSnapshotReferences>({
@@ -174,6 +205,26 @@
 
       return {
         ...item,
+        actualIssuedQuantity: Math.max(
+          0,
+          Number(bomIssueTotals.value.get(item.id)?.issuedQuantity ?? 0) -
+            Number(bomIssueTotals.value.get(item.id)?.goodReturnQuantity ?? 0) -
+            Number(bomIssueTotals.value.get(item.id)?.incomingDefectReturnQuantity ?? 0)
+        ),
+        unissuedQuantity: Math.max(
+          0,
+          Number(item.requiredQuantity) -
+            Number(bomIssueTotals.value.get(item.id)?.issuedQuantity ?? 0) +
+            Number(bomIssueTotals.value.get(item.id)?.goodReturnQuantity ?? 0) +
+            Number(bomIssueTotals.value.get(item.id)?.incomingDefectReturnQuantity ?? 0)
+        ),
+        selectableQuantity: Math.max(
+          0,
+          Number(item.requiredQuantity) -
+            Number(bomIssueTotals.value.get(item.id)?.selectedQuantity ?? 0) +
+            Number(bomIssueTotals.value.get(item.id)?.goodReturnQuantity ?? 0) +
+            Number(bomIssueTotals.value.get(item.id)?.incomingDefectReturnQuantity ?? 0)
+        ),
         assignedOperationSequenceNo: assignedRouteStep?.sequenceNo ?? null,
         assignedOperationSequenceType: assignedRouteStep?.sequenceType ?? ''
       }
@@ -225,6 +276,9 @@
     { prop: 'componentSpecification', label: '规格型号', minWidth: 130 },
     { prop: 'basicQuantity', label: '基本数量（单台）', width: 150, align: 'right' },
     { prop: 'requiredQuantity', label: '需求数量', width: 120, align: 'right' },
+    { prop: 'actualIssuedQuantity', label: '实发数量', width: 120, align: 'right' },
+    { prop: 'unissuedQuantity', label: '未发数量', width: 120, align: 'right' },
+    { prop: 'selectableQuantity', label: '可选单数量', width: 130, align: 'right' },
     { prop: 'unitName', label: '单位', width: 90 },
     {
       prop: 'sourcePath',
@@ -581,6 +635,7 @@
 
   function handleEditorSuccess(updated: MesWorkOrder): void {
     record.value = updated
+    if (mode.value === 'bom') void loadBomIssueTotals()
     emit('success', updated)
   }
 
@@ -612,6 +667,8 @@
 
   async function handleOpen(data: WorkOrderSnapshotDialogOpenData): Promise<void> {
     record.value = data.row
+    bomIssueTotals.value = new Map()
+    bomIssueLoadError.value = false
     mode.value = data.mode
     canEdit.value = data.canEdit
     await dialogRef.value?.handleOpen(data, {
@@ -639,6 +696,7 @@
               : Promise.resolve([])
           ])
           references.value = { ...snapshotReferences, componentTypes }
+          if (data.mode === 'bom') await loadBomIssueTotals()
           const dictionaryCodes =
             data.mode === 'route'
               ? [
