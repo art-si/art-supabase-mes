@@ -12,14 +12,19 @@
         empty-text="—"
       />
     </section>
+    <WorkOrderPackInboundDialog ref="packInboundDialogRef" />
   </div>
 </template>
 
 <script setup lang="ts">
+  import { ElButton } from 'element-plus'
   import type { ArtDescriptionItem } from '@/components/core/base/art-descriptions/types'
   import ArtDescriptions from '@/components/core/base/art-descriptions/index.vue'
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
+  import { useAuth } from '@/hooks/core/useAuth'
+  import { formatNumberValue } from '@/utils/ui/format'
   import type { MesReferenceOption, MesReferences, MesWorkOrder } from '@mes/api'
+  import WorkOrderPackInboundDialog from './work-order-pack-inbound-dialog.vue'
   import WorkOrderUrgencyLabel from './work-order-urgency-label.vue'
   import { workOrderStatusMeta } from './work-order-status'
 
@@ -28,6 +33,8 @@
     references: MesReferences
     tenantOptions: Array<{ label: string; value: string }>
   }>()
+  const { hasAuth } = useAuth()
+  const packInboundDialogRef = ref<InstanceType<typeof WorkOrderPackInboundDialog>>()
 
   const referenceName = (items: MesReferenceOption[], id: unknown): string =>
     items.find((item) => item.id === id)?.name || '—'
@@ -167,7 +174,25 @@
             key: 'warehousedQuantity',
             label: '入库数量',
             field: 'warehousedQuantity',
-            format: 'number'
+            render: (value, row) => {
+              const quantity = formatNumberValue(value, 'zh-CN', { maximumFractionDigits: 4 })
+              if (
+                !row.packingEnabledSnapshot ||
+                Number(value) <= 0 ||
+                !hasAuth('WmsFinishedInbound:View')
+              )
+                return quantity
+              return h(
+                ElButton,
+                {
+                  link: true,
+                  type: 'primary',
+                  'aria-label': `查看工单 ${row.workOrderNo} 的排包入库明细`,
+                  onClick: () => void packInboundDialogRef.value?.handleOpen(row)
+                },
+                () => quantity
+              )
+            }
           }
         ]
       },

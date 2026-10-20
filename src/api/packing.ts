@@ -72,6 +72,19 @@ export interface PackDraft {
   items: Array<{ boardId: string; pieces: number; remark: string }>
 }
 
+export interface WorkOrderPackInboundDetail {
+  lineId: string
+  packId: string
+  packNo: string
+  documentId: string
+  documentNo: string
+  businessDate: string | null
+  lineNo: number
+  inboundQuantity: number
+  returnedQuantity: number
+  netQuantity: number
+}
+
 const { supabase, responseHandle, keysToSnakeDeep } = useSupabase()
 const readOptions = {
   breakReturn: true,
@@ -266,6 +279,23 @@ export async function fetchWorkOrderPacks(workOrderId: string): Promise<WorkOrde
         .eq('work_order_id', workOrderId)
         .order('pack_no'),
     readOptions
+  )
+  return data ?? []
+}
+
+export async function fetchWorkOrderPackInboundDetails(
+  workOrderId: string
+): Promise<WorkOrderPackInboundDetail[]> {
+  const { data } = await responseHandle<WorkOrderPackInboundDetail[]>(
+    () =>
+      supabase.rpc('wms_work_order_pack_inbound_secure', {
+        p_work_order_id: workOrderId
+      }),
+    {
+      breakReturn: true,
+      showErrorMessage: false,
+      errorMessage: '排包入库明细加载失败，请重试'
+    }
   )
   return data ?? []
 }
