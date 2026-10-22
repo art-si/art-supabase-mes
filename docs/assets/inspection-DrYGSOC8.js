@@ -1,1 +1,0 @@
-import{Et as e,Z as t,ot as n}from"./dist-BjdL93zL.js";import{t as r}from"./execution-event-workspace-Ceev59_L.js";var i=n({name:`MesInspection`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{mode:`inspection`}))}});export{i as default};

@@ -108,11 +108,22 @@
                   class="packing-page__order"
                   :class="{ 'is-selected': order.id === orderId }"
                   :aria-pressed="order.id === orderId"
+                  :aria-busy="workOrderDetail.openingId === order.id"
+                  :title="
+                    hasAuth('MesWorkOrder:View')
+                      ? '单击查看排包，双击或 Alt+Enter 查看生产工单'
+                      : '单击查看排包'
+                  "
                   @click="chooseOrder(order.id)"
+                  @dblclick="viewWorkOrder(order)"
+                  @keydown.alt.enter.prevent="viewWorkOrder(order)"
                 >
                   <span class="packing-page__order-top">
                     <strong>{{ order.workOrderNo }}</strong>
-                    <ElTag size="small" :type="orderStatus(order).type" effect="light">{{
+                    <ElTag v-if="workOrderDetail.openingId === order.id" size="small" type="info"
+                      >加载中</ElTag
+                    >
+                    <ElTag v-else size="small" :type="orderStatus(order).type" effect="light">{{
                       orderStatus(order).label
                     }}</ElTag>
                   </span>
@@ -242,6 +253,7 @@
                       <ElButton
                         v-auth="'MesPacking:Manual'"
                         link
+                        size="small"
                         type="primary"
                         :disabled="!canManual"
                         @click.stop="addBoard(row)"
@@ -250,6 +262,7 @@
                       <ElButton
                         v-auth="'MesPacking:Spec'"
                         link
+                        size="small"
                         :disabled="isPublished"
                         @click.stop="openSpec(row)"
                         >参数</ElButton
@@ -307,6 +320,27 @@
                 effect="light"
                 >待按规则保存</ElTag
               >
+              <div
+                v-if="hasAuth('MesPacking:Print')"
+                class="ml-auto flex flex-wrap items-center gap-2"
+              >
+                <ElButton
+                  v-auth="'MesPacking:Print'"
+                  size="small"
+                  :disabled="!canPrint"
+                  :title="printHint"
+                  @click="openPrint('form')"
+                  ><ArtSvgIcon icon="ri:printer-line" />表单打印</ElButton
+                >
+                <ElButton
+                  v-auth="'MesPacking:Print'"
+                  size="small"
+                  :disabled="!canPrint"
+                  :title="printHint"
+                  @click="openPrint('label')"
+                  ><ArtSvgIcon icon="ri:qr-code-line" />标签打印</ElButton
+                >
+              </div>
             </div>
             <div class="packing-page__linkage">
               <span>{{
@@ -334,6 +368,7 @@
               <template #packNo="{ row }"
                 ><ElButton
                   link
+                  size="small"
                   type="primary"
                   :aria-label="`选定 ${row.pack.packNo} 为并入目标`"
                   @click="setTargetPack(row.pack)"
@@ -357,6 +392,7 @@
                 ><ElButton
                   v-auth="'MesPacking:Manual'"
                   link
+                  size="small"
                   type="danger"
                   :disabled="!canManual"
                   @click="removeItem(row.pack, row.item.boardId)"
@@ -381,12 +417,20 @@
         </ArtWorkspaceSplitter>
       </ArtWorkspaceSplitter>
       <PackingBoardSpecDialog ref="specDialogRef" @success="loadDetails" />
+      <PackingPrintDialog ref="printDialogRef" />
+      <component
+        :is="workOrderDialogComponent"
+        ref="workOrderDialogRef"
+        :key="effectiveTenantId || 'all'"
+      />
     </div>
   </ArtPermissionGuard>
 </template>
 
 <script setup lang="ts">
   import type { ColumnOption } from '@/types'
+  import PackingPrintDialog from './modules/packing-print-dialog.vue'
+  import type { PackingPrintMode } from './modules/packing-print'
   import dayjs from 'dayjs'
   import { cloneDeep, uniq } from 'lodash-es'
   import { storeToRefs } from 'pinia'
@@ -400,11 +444,14 @@
   import ArtTableHeader from '@/components/core/tables/art-table-header/index.vue'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import ArtWorkspaceSplitter from '@/components/core/layouts/art-workspace-splitter/index.vue'
-  import { useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { useArtFeedback, notifyFriendlyError } from '@/hooks/core/useArtFeedback'
+  import { useLazyComponent } from '@/hooks/core/useLazyComponent'
+  import type { WorkOrderDialogOpenData } from '../../components/manufacturing/modules/work-order-dialog.vue'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useTenantScopeStore } from '@/store/modules/tenant-scope'
   import {
     fetchPackingOrders,
+    fetchWorkOrders,
     fetchPackRules,
     fetchWorkOrderBoards,
     fetchWorkOrderPacks,
@@ -425,7 +472,8 @@
     'MesPacking:Manual',
     'MesPacking:Save',
     'MesPacking:Publish',
-    'MesPacking:Repack'
+    'MesPacking:Repack',
+    'MesPacking:Print'
   ] as const
   void declaredPermissions
   type Order = Awaited<ReturnType<typeof fetchPackingOrders>>[number]
@@ -434,6 +482,11 @@
   const { effectiveTenantId } = storeToRefs(tenantScope)
   const { confirm, promptText } = useArtFeedback()
   const { hasAuth } = useAuth()
+  const workOrderDetail = reactive({ openingId: '' })
+  const { component: workOrderDialogComponent, load: loadWorkOrderDialog } = useLazyComponent(
+    () => import('../../components/manufacturing/modules/work-order-dialog.vue')
+  )
+  const workOrderDialogRef = ref<{ handleOpen: (data: WorkOrderDialogOpenData) => Promise<void> }>()
   const canManual = computed(() => hasAuth('MesPacking:Manual') && !isPublished.value)
   const orders = ref<Order[]>([])
   const rules = ref<PackRule[]>([])
@@ -484,25 +537,25 @@
   ]
   const resultColumns: ColumnOption<PackingResultRow>[] = [
     { type: 'selection', width: 36 },
-    { prop: 'packNo', label: '包号', width: 100, useSlot: true },
+    { prop: 'packNo', label: '包号', minWidth: 100, useSlot: true },
     {
       prop: 'area',
       label: '区域',
-      width: 62,
+      minWidth: 62,
       formatter: (row) => row.board?.area || '—',
       showOverflowTooltip: true
     },
     {
       prop: 'boardNo',
       label: '编号',
-      width: 76,
+      minWidth: 76,
       formatter: (row) => row.board?.boardNo || '—',
       showOverflowTooltip: true
     },
     {
       prop: 'lengthMm',
       label: '长度 mm',
-      width: 88,
+      minWidth: 88,
       align: 'right',
       formatter: (row) => row.board?.lengthMm || '—'
     },
@@ -510,14 +563,14 @@
     {
       prop: 'meters',
       label: '延米 m',
-      width: 80,
+      minWidth: 80,
       align: 'right',
       formatter: (row) => itemMeters(row.item.boardId, row.item.pieces).toFixed(2)
     },
     {
       prop: 'areaSqm',
       label: '面积 ㎡',
-      width: 80,
+      minWidth: 80,
       align: 'right',
       formatter: (row) => itemArea(row.item.boardId, row.item.pieces).toFixed(2)
     },
@@ -578,6 +631,30 @@
   const error = ref('')
   const detailError = ref('')
   const dirty = ref(false)
+  const printDialogRef = ref<InstanceType<typeof PackingPrintDialog>>()
+  const canPrint = computed(
+    () =>
+      Boolean(selectedOrder.value) &&
+      selectedPacks.value.length > 0 &&
+      !dirty.value &&
+      !busy.value &&
+      !detailLoading.value &&
+      !detailError.value
+  )
+  const printHint = computed(() =>
+    dirty.value ? '请先保存排包调整后打印' : '勾选包内任一明细即可打印整包'
+  )
+  async function openPrint(mode: PackingPrintMode): Promise<void> {
+    if (!hasAuth('MesPacking:Print') || !canPrint.value || !selectedOrder.value) return
+    await printDialogRef.value?.handleOpen({
+      mode,
+      order: selectedOrder.value,
+      boards: boards.value,
+      packs: packs.value,
+      selectedPacks: selectedPacks.value
+    })
+  }
+  watch([effectiveTenantId, orderId], () => void printDialogRef.value?.handleClose())
   const revision = ref('')
   let detailRequest = 0
   const selectedOrder = computed(() => orders.value.find((order) => order.id === orderId.value))
@@ -748,6 +825,36 @@
   }
   function openWorkOrder(): void {
     void router.push({ name: 'MesWorkOrder' })
+  }
+  async function viewWorkOrder(order: Order): Promise<void> {
+    if (!hasAuth('MesWorkOrder:View') || workOrderDetail.openingId) return
+    workOrderDetail.openingId = order.id
+    const scope = effectiveTenantId.value
+    try {
+      const [result] = await Promise.all([
+        fetchWorkOrders({ current: 1, size: 1, recordId: order.id, tenantId: order.tenantId }),
+        loadWorkOrderDialog()
+      ])
+      if (scope !== effectiveTenantId.value) return
+      const row = result.data[0]
+      if (!row) {
+        ElMessage.warning('工单已变更或暂无查看权限，请刷新后重试')
+        return
+      }
+      await workOrderDialogRef.value?.handleOpen({
+        tenantId: row.tenantId,
+        tenantOptions: tenantScope.tenantOptions.map((tenant) => ({
+          label: tenant.tenantName,
+          value: tenant.id
+        })),
+        row,
+        readonly: true
+      })
+    } catch (error) {
+      notifyFriendlyError(error, '生产工单加载失败，请重试')
+    } finally {
+      workOrderDetail.openingId = ''
+    }
   }
   function openSpec(row: Record<string, unknown>): void {
     if (isPublished.value) return

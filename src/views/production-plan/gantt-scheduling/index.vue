@@ -303,7 +303,7 @@
   const { focusMode } = useWorkspaceFocus()
   const tenantScopeStore = useTenantScopeStore()
   const { effectiveTenantId, tenantOptions } = storeToRefs(tenantScopeStore)
-  const productionTree = new TreeUtils({ deepClone: false })
+  const productionTree = new TreeUtils({ parentKey: 'parentId', deepClone: false })
   const shiftPlanDialogRef = ref<{ handleOpen: (data: ShiftPlanDialogOpenData) => Promise<void> }>()
   const taskDueDateDialogRef = ref<InstanceType<typeof TaskDueDateDialog>>()
   const state = reactive<PageState>({
@@ -340,6 +340,9 @@
   ]
 
   const departmentTree = computed(() => productionTree.listToTree(state.departments))
+  const departmentPaths = computed(() =>
+    productionTree.getLabelPathIndex(departmentTree.value, (department) => department.name)
+  )
   const selectedWorkshop = computed(() =>
     state.departments.find((department) => department.id === scope.selectedWorkshopId)
   )
@@ -348,10 +351,7 @@
       .getDescendants(departmentTree.value, departmentId, true)
       .map((item) => String(item.id))
   const departmentPath = (department: MesProductionDepartment): string => {
-    const path = productionTree
-      .getAncestors(departmentTree.value, department.id)
-      .map((item) => String(item.name))
-      .join(' / ')
+    const path = departmentPaths.value.get(department.id)
     if (effectiveTenantId.value) return path || department.name
     const tenant = tenantOptions.value.find((item) => item.id === department.tenantId)
     return `${tenant?.tenantName || '当前租户'} / ${path || department.name}`

@@ -4,13 +4,13 @@
   <p>A production-order-centered roadmap for scheduling, dispatching, reporting, inspection, completion, and lot/serial traceability.</p>
 
   <p>
-    <a href="https://gitee.com/wangyanghub/art-supabase-mes">Gitee</a>
+    <a href="https://gitee.com/art-si/art-supabase-mes">Gitee</a>
     ·
-    <a href="https://github.com/869123771/art-supabase-mes">GitHub</a>
+    <a href="https://github.com/art-si/art-supabase-mes">GitHub</a>
     ·
-    <a href="https://gitee.com/wangyanghub/art-supabase-pro">Platform</a>
+    <a href="https://gitee.com/art-si/art-supabase-pro">Platform</a>
     ·
-    <a href="https://869123771.github.io/art-supabase-doc/modules/mes">Documentation</a>
+    <a href="https://art-si.github.io/art-supabase-doc/modules/mes">Documentation</a>
     ·
     <a href="./README.md">简体中文</a>
   </p>
@@ -20,7 +20,7 @@
 
 Yiqi Workshop MES is the manufacturing-execution application for Yiqi Workshop. Its target is a traceable production loop connecting standards, plans, shop-floor tasks, personnel and equipment results, quality outcomes, and material lots.
 
-Authentication, tenancy, navigation, authorization, layout, shared components, stores, and the common Supabase client remain owned by [`art-supabase-pro`](https://gitee.com/wangyanghub/art-supabase-pro). MDM and its authoritative sources provide material, equipment, personnel, production-organization, work-center, and process-route identities.
+Authentication, tenancy, navigation, authorization, layout, shared components, stores, and the common Supabase client remain owned by [`art-supabase-pro`](https://gitee.com/art-si/art-supabase-pro). MDM and its authoritative sources provide material, equipment, personnel, production-organization, work-center, and process-route identities.
 
 ## Current Status
 

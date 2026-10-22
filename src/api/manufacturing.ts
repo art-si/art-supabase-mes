@@ -116,7 +116,19 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
     () => (options?.signal ? query.abortSignal(options.signal) : query),
     readOptions
   )
-  const rows = data ?? []
+  return {
+    data: (await hydrateMesWorkOrderMaterials(data ?? [], options)).map((row) => ({
+      ...row,
+      details: [...(row.details ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
+    })),
+    total: total ?? 0
+  }
+}
+
+/** Keep the material description shown by work orders and packing documents identical. */
+export async function hydrateMesWorkOrderMaterials<
+  T extends Pick<MesWorkOrder, 'tenantId' | 'materialId' | 'materialNameSnapshot'>
+>(rows: T[], options?: ApiRequestOptions): Promise<Array<T & { materialDescription: string }>> {
   const detailsByTenant = await mapWithConcurrency(
     Object.entries(groupBy(rows, 'tenantId')),
     3,
@@ -132,16 +144,12 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
   const materialDetails = new Map(
     detailsByTenant.map(({ tenantId, details }) => [tenantId, details])
   )
-  return {
-    data: rows.map((row) => ({
-      ...row,
-      materialDescription:
-        materialDetails.get(row.tenantId)?.get(row.materialId)?.description?.trim() ||
-        row.materialNameSnapshot,
-      details: [...(row.details ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
-    })),
-    total: total ?? 0
-  }
+  return rows.map((row) => ({
+    ...row,
+    materialDescription:
+      materialDetails.get(row.tenantId)?.get(row.materialId)?.description?.trim() ||
+      row.materialNameSnapshot
+  }))
 }
 
 export async function saveWorkOrder(input: MesWorkOrderInput, id?: string) {

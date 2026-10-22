@@ -17,6 +17,7 @@ const __dirname = dirname(__filename)
 // 子应用不维护公共 auto-import 清单；仅在本地生成文件存在时读取。
 const autoImportFile = [
   path.resolve(__dirname, '.auto-import.json'),
+  path.resolve(__dirname, '../..', '.auto-import.json'),
   path.resolve(__dirname, 'node_modules/art-supabase-pro/.auto-import.json')
 ].find((file) => fs.existsSync(file))
 const autoImportConfig = autoImportFile

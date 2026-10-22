@@ -1,5 +1,6 @@
 import { useSupabase } from '@/hooks/core/useSupabase'
 import { fetchAllRangePages } from '@/utils/supabase/pagination'
+import { hydrateMesWorkOrderMaterials } from './manufacturing'
 
 export type BoardKind = 'PU_BOARD' | 'ROCK_BOARD'
 export type RemainderPolicy = 'separate' | 'merge' | 'manual'
@@ -119,6 +120,8 @@ export async function fetchPackingOrders(tenantId?: string | null): Promise<
     workOrderNo: string
     materialCodeSnapshot: string
     materialNameSnapshot: string
+    materialId: string
+    materialDescription: string
     specificationSnapshot: string
     projectNameSnapshot: string
     constructionNo: string
@@ -140,6 +143,7 @@ export async function fetchPackingOrders(tenantId?: string | null): Promise<
     workOrderNo: string
     materialCodeSnapshot: string
     materialNameSnapshot: string
+    materialId: string
     specificationSnapshot: string
     projectNameSnapshot: string
     constructionNo: string
@@ -157,7 +161,7 @@ export async function fetchPackingOrders(tenantId?: string | null): Promise<
     let query = supabase
       .from('mes_work_order')
       .select(
-        'id,tenant_id,work_order_no,material_code_snapshot,material_name_snapshot,specification_snapshot,project_name_snapshot,construction_no,planned_start_date,order_quantity,extension_values,packing_thickness_field_key_snapshot,packing_rule_id,status,packing_published_at,update_time,details:mes_work_order_detail(pieces,packed_pieces)'
+        'id,tenant_id,work_order_no,material_id,material_code_snapshot,material_name_snapshot,specification_snapshot,project_name_snapshot,construction_no,planned_start_date,order_quantity,extension_values,packing_thickness_field_key_snapshot,packing_rule_id,status,packing_published_at,update_time,details:mes_work_order_detail(pieces,packed_pieces)'
       )
       .is('deleted_at', null)
       .neq('status', 'closed')
@@ -168,27 +172,29 @@ export async function fetchPackingOrders(tenantId?: string | null): Promise<
     return responseHandle<OrderRow[]>(() => query, readOptions)
   })
   if (result.error) throw result.error
-  return (result.data ?? []).map(
-    ({ details, extensionValues, packingThicknessFieldKeySnapshot, ...order }) => {
-      const boardPieces = details.reduce((total, detail) => total + Number(detail.pieces || 0), 0)
-      const packedPieces = details.reduce(
-        (total, detail) => total + Number(detail.packedPieces || 0),
-        0
-      )
-      const packingStatus: PackingStatus = order.packingPublishedAt
-        ? 'published'
-        : packedPieces > 0
-          ? 'packed'
-          : 'unpacked'
-      const thickness = Number(extensionValues?.[packingThicknessFieldKeySnapshot ?? ''])
-      return {
-        ...order,
-        boardPieces,
-        packedPieces,
-        boardThicknessMm: thickness > 0 ? thickness : null,
-        packingStatus
+  return hydrateMesWorkOrderMaterials(
+    (result.data ?? []).map(
+      ({ details, extensionValues, packingThicknessFieldKeySnapshot, ...order }) => {
+        const boardPieces = details.reduce((total, detail) => total + Number(detail.pieces || 0), 0)
+        const packedPieces = details.reduce(
+          (total, detail) => total + Number(detail.packedPieces || 0),
+          0
+        )
+        const packingStatus: PackingStatus = order.packingPublishedAt
+          ? 'published'
+          : packedPieces > 0
+            ? 'packed'
+            : 'unpacked'
+        const thickness = Number(extensionValues?.[packingThicknessFieldKeySnapshot ?? ''])
+        return {
+          ...order,
+          boardPieces,
+          packedPieces,
+          boardThicknessMm: thickness > 0 ? thickness : null,
+          packingStatus
+        }
       }
-    }
+    )
   )
 }
 

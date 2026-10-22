@@ -362,7 +362,7 @@
     error: '',
     collapsed: false
   })
-  const productionTree = new TreeUtils({ deepClone: false })
+  const productionTree = new TreeUtils({ parentKey: 'parentId', deepClone: false })
   const overview = reactive({ total: 0, attention: 0, ready: 0 })
   const workspaceTags = computed<BusinessWorkspaceTag[]>(() =>
     isWorkOrder.value
@@ -448,6 +448,9 @@
     onSortChange: handleSortChange
   }))
   const departmentTree = computed(() => productionTree.listToTree(productionScope.departments))
+  const departmentPaths = computed(() =>
+    productionTree.getLabelPathIndex(departmentTree.value, (department) => department.name)
+  )
   const selectedWorkshop = computed(() =>
     productionScope.departments.find((item) => item.id === productionScope.selectedWorkshopId)
   )
@@ -456,10 +459,7 @@
       .getDescendants(departmentTree.value, departmentId, true)
       .map((item) => String(item.id))
   const departmentPath = (department: MesProductionDepartment): string => {
-    const path = productionTree
-      .getAncestors(departmentTree.value, department.id)
-      .map((item) => String(item.name))
-      .join(' / ')
+    const path = departmentPaths.value.get(department.id)
     if (effectiveTenantId.value) return path || department.name
     const tenant = tenantOptions.value.find((item) => item.id === department.tenantId)
     return `${tenant?.tenantName || '当前租户'} / ${path || department.name}`
