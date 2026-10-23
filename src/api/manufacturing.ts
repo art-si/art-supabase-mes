@@ -5,6 +5,7 @@ import type { ApiRequestOptions } from '@/types/api/request'
 import { normalizeNullableText } from '@/utils/form/normalize'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
 import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
+import { createPollingSubscription } from '@/utils/polling-subscription'
 import type {
   MesListQuery,
   MesBatchResult,
@@ -613,25 +614,10 @@ export async function replaceOperationTaskShiftPlan(
 }
 
 export function subscribeMesSchedulingChanges(
-  tenantId: string | null | undefined,
+  _tenantId: string | null | undefined,
   onChange: () => void
 ): () => void {
-  const channel = supabase.channel(`mes-scheduling-${tenantId || 'all'}-${crypto.randomUUID()}`)
-  const tables = ['mes_operation_task', 'mes_operation_task_allocation', 'mes_work_order'] as const
-  tables.forEach((table) => {
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table,
-        ...(tenantId ? { filter: `tenant_id=eq.${tenantId}` } : {})
-      },
-      onChange
-    )
-  })
-  channel.subscribe()
-  return () => void supabase.removeChannel(channel)
+  return createPollingSubscription(onChange)
 }
 
 export async function fetchSchedulingRules(tenantId?: string | null) {

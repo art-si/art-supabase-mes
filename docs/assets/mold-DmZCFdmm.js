@@ -1,0 +1,1 @@
+import{Dt as e,Q as t,st as n}from"./dist-D7MfabC7.js";import{t as r}from"./execution-event-workspace-DCArQP8r.js";var i=n({name:`MesMold`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{mode:`mold`}))}});export{i as default};

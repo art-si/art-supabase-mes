@@ -1,1 +1,0 @@
-import{Dt as e,Q as t,st as n}from"./dist-D7MfabC7.js";import{t as r}from"./report-ledger-CWrVbJA-.js";var i=n({name:`MesReportAllocation`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{mode:`allocation`}))}});export{i as default};

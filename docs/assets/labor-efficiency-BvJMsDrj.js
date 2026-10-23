@@ -1,0 +1,1 @@
+import{Dt as e,Q as t,st as n}from"./dist-D7MfabC7.js";import{t as r}from"./execution-analytics-CC4HmwIw.js";var i=n({name:`MesLaborEfficiency`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{mode:`person`}))}});export{i as default};
