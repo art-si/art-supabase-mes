@@ -175,6 +175,7 @@
   } from '@/components/core/tables/art-table-query/index.vue'
   import type { ColumnOption } from '@/types'
   import TreeUtils from '@/utils/tree'
+  import { getDepartmentsWithWorkCenters } from '@/utils/business/production-scope'
   import { useAuth } from '@/hooks/core/useAuth'
   import {
     batchTransitionOperationTasks,
@@ -464,16 +465,17 @@
     const tenant = tenantOptions.value.find((item) => item.id === department.tenantId)
     return `${tenant?.tenantName || '当前租户'} / ${path || department.name}`
   }
+  const departmentsWithWorkCenters = computed(() =>
+    getDepartmentsWithWorkCenters(productionScope.departments, productionScope.workCenters)
+  )
   const workshopOptions = computed<ProductionScopeWorkshopOption[]>(() =>
     productionScope.departments
-      .filter((department) => {
-        if (!department.enabled || !department.parentId) return false
-        const departmentIds = descendantDepartmentIds(department.id)
-        return productionScope.workCenters.some(
-          (center) =>
-            center.tenantId === department.tenantId && departmentIds.includes(center.departmentId)
-        )
-      })
+      .filter(
+        (department) =>
+          department.enabled &&
+          Boolean(department.parentId) &&
+          departmentsWithWorkCenters.value.has(department.id)
+      )
       .map((department) => ({
         id: department.id,
         name: department.name,

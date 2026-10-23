@@ -756,7 +756,10 @@ export async function fetchOperationTaskScope(
         .order('sort')
         .order('code')
       if (tenantId) query = query.eq('tenant_id', tenantId)
-      return responseHandle<MesProductionDepartment[]>(() => query.range(from, to), readOptions)
+      return responseHandle<MesProductionDepartment[]>(() => query.range(from, to), {
+        ...readOptions,
+        showErrorMessage: false
+      })
     }),
     fetchAllRangePages<MesProductionScopeCenter>(({ from, to }) => {
       let query = supabase
@@ -767,7 +770,10 @@ export async function fetchOperationTaskScope(
         .order('sort')
         .order('code')
       if (tenantId) query = query.eq('tenant_id', tenantId)
-      return responseHandle<MesProductionScopeCenter[]>(() => query.range(from, to), readOptions)
+      return responseHandle<MesProductionScopeCenter[]>(() => query.range(from, to), {
+        ...readOptions,
+        showErrorMessage: false
+      })
     })
   ])
   return {

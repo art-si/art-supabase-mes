@@ -70,17 +70,20 @@
                 @pagination:size-change="size = $event"
               >
                 <ElTableColumn type="index" label="序号" width="62" :index="rowIndex" />
-                <ElTableColumn label="报工时间" width="158"
+                <ElTableColumn prop="reportedAt" label="报工时间" width="158"
                   ><template #default="{ row }">{{
                     formatTime(row.reportedAt)
                   }}</template></ElTableColumn
                 >
-                <ElTableColumn label="开始加工" width="158"
+                <ElTableColumn prop="startedAt" label="开始加工" width="158"
                   ><template #default="{ row }">{{
                     formatTime(row.startedAt)
                   }}</template></ElTableColumn
                 >
-                <ElTableColumn label="生产工单 / 任务单" min-width="230"
+                <ElTableColumn
+                  prop="task.workOrder.workOrderNo"
+                  label="生产工单 / 任务单"
+                  min-width="230"
                   ><template #default="{ row }"
                     ><button
                       type="button"
@@ -93,20 +96,29 @@
                         icon="ri:file-list-3-line"
                       /> </button></template
                 ></ElTableColumn>
-                <ElTableColumn label="工序 / 产品" min-width="210" show-overflow-tooltip
+                <ElTableColumn
+                  prop="task.operationName"
+                  label="工序 / 产品"
+                  min-width="210"
+                  show-overflow-tooltip
                   ><template #default="{ row }"
                     ><BusinessTableIdentityCell
                       :primary="`${row.task?.operationCode || '—'} · ${row.task?.operationName || '—'}`"
                       :secondary="`${row.task?.workOrder?.materialCodeSnapshot || '—'} ${row.task?.workOrder?.materialNameSnapshot || ''}`"
                     /> </template
                 ></ElTableColumn>
-                <ElTableColumn label="序列 / 类型" min-width="110">
+                <ElTableColumn prop="task.sequenceNo" label="序列 / 类型" min-width="110">
                   <template #default="{ row }"
                     >{{ row.task?.sequenceNo ?? '—' }} /
                     {{ row.task?.sequenceType || '—' }}</template
                   >
                 </ElTableColumn>
-                <ElTableColumn label="规格 / 项目" min-width="190" show-overflow-tooltip>
+                <ElTableColumn
+                  prop="task.workOrder.specificationSnapshot"
+                  label="规格 / 项目"
+                  min-width="190"
+                  show-overflow-tooltip
+                >
                   <template #default="{ row }"
                     >{{ row.task?.workOrder?.specificationSnapshot || '—' }} /
                     {{ row.task?.workOrder?.projectNameSnapshot || '—' }}</template
@@ -118,7 +130,12 @@
                   min-width="126"
                   show-overflow-tooltip
                 />
-                <ElTableColumn label="实际机台" min-width="156" show-overflow-tooltip>
+                <ElTableColumn
+                  prop="task.equipmentNameSnapshot"
+                  label="实际机台"
+                  min-width="156"
+                  show-overflow-tooltip
+                >
                   <template #default="{ row }">{{
                     row.equipmentId
                       ? row.task?.equipmentNameSnapshot || row.task?.equipmentCodeSnapshot || '—'
@@ -126,7 +143,12 @@
                   }}</template>
                 </ElTableColumn>
                 <ElTableColumn prop="shiftName" label="班次" width="84" />
-                <ElTableColumn label="工序计划" width="100" align="right">
+                <ElTableColumn
+                  prop="task.plannedQuantity"
+                  label="工序计划"
+                  width="100"
+                  align="right"
+                >
                   <template #default="{ row }">{{ row.task?.plannedQuantity ?? '—' }}</template>
                 </ElTableColumn>
                 <ElTableColumn
@@ -143,7 +165,7 @@
                     >{{ laborHours(row).toFixed(2) }} h</template
                   ></ElTableColumn
                 >
-                <ElTableColumn label="良品" width="88" align="right"
+                <ElTableColumn prop="goodQuantity" label="良品" width="88" align="right"
                   ><template #default="{ row }">{{ row.goodQuantity }}</template></ElTableColumn
                 >
                 <ElTableColumn label="不良" width="88" align="right"
@@ -172,14 +194,18 @@
                   prop="reporterName"
                   show-overflow-tooltip
                 />
-                <ElTableColumn label="状态" width="106"
+                <ElTableColumn prop="status" label="状态" width="106"
                   ><template #default="{ row }"
                     ><ElTag size="small" :type="statusTone(row.status)" effect="plain">{{
                       statusLabel(row.status)
                     }}</ElTag></template
                   ></ElTableColumn
                 >
-                <ElTableColumn label="操作" fixed="right" :width="mode === 'approval' ? 188 : 104"
+                <ElTableColumn
+                  prop="operation"
+                  label="操作"
+                  fixed="right"
+                  :width="mode === 'approval' ? 188 : 104"
                   ><template #default="{ row }"
                     ><BusinessTableRowActions
                       ><ArtButtonTable type="view" @click="openDetail(row)" /><template

@@ -333,7 +333,7 @@
     order: 'ascending' | 'descending' | null
   }>({ prop: '', order: null })
   const overviewCollapsed = ref(false)
-  const productionTree = new TreeUtils({ deepClone: false })
+  const productionTree = new TreeUtils({ parentKey: 'parentId', deepClone: false })
   const workspaceTags: BusinessWorkspaceTag[] = [
     { label: '工序任务实时同步', type: 'primary' },
     { label: '班次产能校验', type: 'warning' },

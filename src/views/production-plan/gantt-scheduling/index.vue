@@ -227,6 +227,7 @@
   import { useArtFeedback } from '@/hooks/core/useArtFeedback'
   import { useTenantScopeStore } from '@/store/modules/tenant-scope'
   import TreeUtils from '@/utils/tree'
+  import { getDepartmentsWithWorkCenters } from '@/utils/business/production-scope'
   import {
     fetchGanttCalendar,
     fetchOperationTaskScope,
@@ -356,16 +357,17 @@
     const tenant = tenantOptions.value.find((item) => item.id === department.tenantId)
     return `${tenant?.tenantName || '当前租户'} / ${path || department.name}`
   }
+  const departmentsWithWorkCenters = computed(() =>
+    getDepartmentsWithWorkCenters(state.departments, state.workCenters)
+  )
   const workshopOptions = computed<ProductionScopeWorkshopOption[]>(() =>
     state.departments
-      .filter((department) => {
-        if (!department.enabled || !department.parentId) return false
-        const departmentIds = descendantDepartmentIds(department.id)
-        return state.workCenters.some(
-          (center) =>
-            center.tenantId === department.tenantId && departmentIds.includes(center.departmentId)
-        )
-      })
+      .filter(
+        (department) =>
+          department.enabled &&
+          Boolean(department.parentId) &&
+          departmentsWithWorkCenters.value.has(department.id)
+      )
       .map((department) => ({
         id: department.id,
         name: department.name,

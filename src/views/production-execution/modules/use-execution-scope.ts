@@ -2,10 +2,11 @@ import { computed, reactive, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTenantScopeStore } from '@/store/modules/tenant-scope'
 import TreeUtils from '@/utils/tree'
+import { getDepartmentsWithWorkCenters } from '@/utils/business/production-scope'
 import { fetchOperationTaskScope, type MesProductionScope } from '@mes/api'
 import type { ProductionScopeWorkshopOption } from '@/components/business/production-work-center-navigator/index.vue'
 
-const tree = new TreeUtils({ deepClone: false })
+const tree = new TreeUtils({ parentKey: 'parentId', deepClone: false })
 
 export function useExecutionScope() {
   const { effectiveTenantId } = storeToRefs(useTenantScopeStore())
@@ -26,6 +27,12 @@ export function useExecutionScope() {
   })
 
   const departmentTree = computed(() => tree.listToTree(scope.departments))
+  const departmentPaths = computed(() =>
+    tree.getLabelPathIndex(departmentTree.value, (department) => department.name)
+  )
+  const departmentsWithWorkCenters = computed(() =>
+    getDepartmentsWithWorkCenters(scope.departments, scope.workCenters)
+  )
   const descendantIds = (id: string) =>
     tree.getDescendants(departmentTree.value, id, true).map((item) => String(item.id))
   const selectedWorkshop = computed(() =>
@@ -36,22 +43,14 @@ export function useExecutionScope() {
   )
   const workshopOptions = computed<ProductionScopeWorkshopOption[]>(() =>
     scope.departments
-      .filter((department) => {
-        if (!department.enabled) return false
-        const ids = descendantIds(department.id)
-        return scope.workCenters.some(
-          (center) => center.tenantId === department.tenantId && ids.includes(center.departmentId)
-        )
-      })
+      .filter(
+        (department) => department.enabled && departmentsWithWorkCenters.value.has(department.id)
+      )
       .map((department) => ({
         id: department.id,
         name: department.name,
         code: department.code,
-        path:
-          tree
-            .getAncestors(departmentTree.value, department.id)
-            .map((item) => String(item.name))
-            .join(' / ') || department.name
+        path: departmentPaths.value.get(department.id) || department.name
       }))
   )
   const visibleCenters = computed(() => {
