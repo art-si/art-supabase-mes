@@ -1,1 +1,0 @@
-import{sn as e,vt as t}from"./dist-D7MfabC7.js";function n(n){let r=e(),i;return{component:r,load:async()=>{if(!r.value){i??(i=n().then(({default:e})=>{r.value=e}));try{await i}finally{i=void 0}}await t()}}}export{n as t};

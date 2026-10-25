@@ -1,1 +1,0 @@
-import{Dt as e,Q as t,st as n}from"./dist-D7MfabC7.js";import{t as r}from"./art-permission-guard-3wN14qTt.js";var i=n({name:`Exception403`,__name:`index`,setup(n){return(n,i)=>(e(),t(r,{"force-denied":``,"resource-name":`目标页面`,"show-relogin":``,"viewport-centered":``}))}});export{i as default};

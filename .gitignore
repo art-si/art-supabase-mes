@@ -16,3 +16,9 @@ test-results/
 public/flyfish-viewer-assets.json
 public/vendor/
 public/wasm/
+
+# Local IDE state and build/test diagnostics.
+.idea/
+*.log
+*.tsbuildinfo
+/coverage/
