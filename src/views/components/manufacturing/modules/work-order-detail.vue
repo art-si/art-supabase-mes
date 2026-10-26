@@ -171,6 +171,19 @@
             format: 'number'
           },
           {
+            key: 'finishedInboundAreaSqm',
+            label: '累计完工入库面积 ㎡',
+            field: 'finishedInboundAreaSqm',
+            format: 'number'
+          },
+          {
+            key: 'finishedInboundMode',
+            label: '入库模式',
+            field: 'finishedInboundMode',
+            dictCode: 'wmsFinishedInboundMode',
+            dictDisplay: 'text'
+          },
+          {
             key: 'warehousedQuantity',
             label: '入库数量',
             field: 'warehousedQuantity',

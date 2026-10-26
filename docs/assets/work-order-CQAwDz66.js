@@ -1,0 +1,1 @@
+import{$ as e,Ot as t,ct as n}from"./dist-1QnCqFHv.js";import{t as r}from"./manufacturing-C9m6hU0z.js";var i=n({name:`MesWorkOrder`,__name:`index`,setup(n){return(n,i)=>(t(),e(r))}});export{i as default};

@@ -62,6 +62,9 @@ export interface WorkOrderPack {
   confirmed: boolean
   remark: string
   items: WorkOrderPackItem[]
+  inboundQuantity: number
+  inboundAreaSqm: number
+  inboundAt: string | null
 }
 
 export interface PackDraft {
@@ -71,6 +74,9 @@ export interface PackDraft {
   confirmed: boolean
   remark: string
   items: Array<{ boardId: string; pieces: number; remark: string }>
+  inboundQuantity?: number
+  inboundAreaSqm?: number
+  inboundAt?: string | null
 }
 
 export interface WorkOrderPackInboundDetail {
@@ -280,7 +286,7 @@ export async function fetchWorkOrderPacks(workOrderId: string): Promise<WorkOrde
       supabase
         .from('mes_work_order_pack')
         .select(
-          'id,pack_no,area,axis,manually_adjusted,confirmed,remark,items:mes_work_order_pack_item(id,board_id,pieces,remark)'
+          'id,pack_no,area,axis,manually_adjusted,confirmed,remark,inbound_quantity,inbound_area_sqm,inbound_at,items:mes_work_order_pack_item(id,board_id,pieces,remark)'
         )
         .eq('work_order_id', workOrderId)
         .order('pack_no'),

@@ -157,7 +157,7 @@
       ></ArtWorkspaceSplitter>
       <ArtDrawer ref="detailDrawerRef" size="lg" :show-footer="false"
         ><div v-if="detail" class="mold-ledger__detail"
-          ><div class="mold-ledger__detail-intro">
+          ><div class="mes-production-detail-intro">
             <span aria-hidden="true"><ArtSvgIcon icon="ri:tools-line" /></span>
             <div>
               <small>{{ detail.details.moldCode || '模具记录' }}</small>
@@ -262,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+  import './production-detail-intro.scss'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
@@ -593,47 +594,6 @@
   .mold-ledger__detail {
     display: grid;
     gap: 16px;
-  }
-
-  .mold-ledger__detail h3 {
-    margin: 0;
-    color: var(--el-text-color-primary);
-  }
-
-  .mold-ledger__detail-intro {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    min-width: 0;
-    padding: 14px 16px;
-    background: var(--art-gray-100);
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: var(--custom-radius);
-  }
-
-  .mold-ledger__detail-intro > span {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    color: var(--theme-color);
-    background: color-mix(in srgb, var(--theme-color) 10%, var(--default-box-color));
-    border-radius: var(--art-control-radius);
-  }
-
-  .mold-ledger__detail-intro > div {
-    min-width: 0;
-    margin-right: auto;
-  }
-
-  .mold-ledger__detail-intro small,
-  .mold-ledger__detail-intro p {
-    color: var(--el-text-color-secondary);
-  }
-
-  .mold-ledger__detail-intro p {
-    margin: 2px 0 0;
   }
 
   .mold-ledger__detail a {

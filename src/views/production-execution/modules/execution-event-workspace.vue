@@ -722,8 +722,8 @@
 
       <ArtDrawer ref="detailDrawerRef" size="lg" :show-footer="false">
         <div v-if="detailEvent" class="execution-event-page__detail">
-          <div class="execution-event-page__detail-intro">
-            <span class="execution-event-page__detail-icon" aria-hidden="true">
+          <div class="mes-production-detail-intro">
+            <span aria-hidden="true">
               <ArtSvgIcon :icon="icon" />
             </span>
             <div>
@@ -787,6 +787,7 @@
 </template>
 
 <script setup lang="ts">
+  import './production-detail-intro.scss'
   import { createDateTimeFormatter } from '@/utils/ui/format'
   import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
@@ -1891,47 +1892,6 @@
     &__detail {
       display: grid;
       gap: 16px;
-    }
-
-    &__detail-intro {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      min-width: 0;
-      padding: 14px 16px;
-      background: var(--art-gray-100);
-      border: 1px solid var(--el-border-color-lighter);
-      border-radius: var(--custom-radius);
-    }
-
-    &__detail-intro > div {
-      min-width: 0;
-      margin-right: auto;
-    }
-
-    &__detail-icon {
-      display: grid;
-      flex: none;
-      place-items: center;
-      width: 40px;
-      height: 40px;
-      color: var(--theme-color);
-      background: color-mix(in srgb, var(--theme-color) 10%, var(--default-box-color));
-      border-radius: var(--art-control-radius);
-    }
-
-    &__detail-intro small {
-      color: var(--el-text-color-secondary);
-    }
-
-    &__detail h3 {
-      margin: 0;
-      color: var(--el-text-color-primary);
-    }
-
-    &__detail-intro p {
-      margin: 2px 0 0;
-      color: var(--el-text-color-secondary);
     }
 
     &__media {

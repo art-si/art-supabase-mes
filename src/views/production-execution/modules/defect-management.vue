@@ -214,7 +214,7 @@
       </ArtDialog>
       <ArtDrawer ref="detailDrawerRef" size="lg" :show-footer="false"
         ><div v-if="detailRow" class="defect-page__detail"
-          ><div class="defect-page__detail-intro"
+          ><div class="mes-production-detail-intro"
             ><span aria-hidden="true"><ArtSvgIcon icon="ri:shield-flash-line" /></span>
             <div>
               <small>{{ detailRow.reason?.code || '不良原因' }}</small>
@@ -260,6 +260,7 @@
 </template>
 
 <script setup lang="ts">
+  import './production-detail-intro.scss'
   import { toNameCodeOption } from '@/utils/form/option'
 
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
@@ -730,47 +731,6 @@
   .defect-page__detail {
     display: grid;
     gap: 16px;
-  }
-
-  .defect-page__detail h3 {
-    margin: 0;
-    color: var(--el-text-color-primary);
-  }
-
-  .defect-page__detail-intro {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    min-width: 0;
-    padding: 14px 16px;
-    background: var(--art-gray-100);
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: var(--custom-radius);
-  }
-
-  .defect-page__detail-intro > span {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    color: var(--theme-color);
-    background: color-mix(in srgb, var(--theme-color) 10%, var(--default-box-color));
-    border-radius: var(--art-control-radius);
-  }
-
-  .defect-page__detail-intro > div {
-    min-width: 0;
-    margin-right: auto;
-  }
-
-  .defect-page__detail-intro small,
-  .defect-page__detail-intro p {
-    color: var(--el-text-color-secondary);
-  }
-
-  .defect-page__detail-intro p {
-    margin: 2px 0 0;
   }
 
   @media (width <= 900px) {

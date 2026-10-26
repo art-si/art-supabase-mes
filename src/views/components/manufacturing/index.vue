@@ -143,6 +143,7 @@
 </template>
 
 <script setup lang="tsx">
+  import { toTenantSelectOptions } from '@/utils/tenant-display'
   import { createDateTimeFormatter } from '@/utils/ui/format'
 
   import dayjs from 'dayjs'
@@ -1533,10 +1534,7 @@
     void tableRef.value?.getData()
   }
   function tenantChoices() {
-    return tenantOptions.value.map((tenant) => ({
-      label: `${tenant.tenantName || tenant.tenantCode}（${tenant.tenantCode}）`,
-      value: tenant.id
-    }))
+    return toTenantSelectOptions(tenantOptions.value)
   }
   async function openWorkOrder(row?: MesWorkOrder, readonly = false): Promise<void> {
     await loadWorkOrderDialog()

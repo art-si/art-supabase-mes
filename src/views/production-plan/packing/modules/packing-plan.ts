@@ -1,5 +1,17 @@
 import type { PackDraft, PackRule, WorkOrderBoard } from '@mes/api'
 
+export function nextPackNo(workOrderNo: string, packs: Pick<PackDraft, 'packNo'>[]): string {
+  const prefix = `${workOrderNo.trim()}-`
+  if (prefix === '-') throw new Error('生产工单号为空，请刷新工单后重试')
+  const serial = packs.reduce((highest, pack) => {
+    const number = pack.packNo.trim()
+    const localNumber = number.startsWith(prefix) ? number.slice(prefix.length) : number
+    const match = /^PK-(\d+)$/.exec(localNumber)
+    return match ? Math.max(highest, Number(match[1])) : highest
+  }, 0)
+  return `${prefix}PK-${String(serial + 1).padStart(4, '0')}`
+}
+
 export const remainingPieces = (board: WorkOrderBoard, packs: PackDraft[]): number =>
   board.pieces -
   packs.reduce(
@@ -48,19 +60,21 @@ export function validatePlan(
   const boardById = new Map(boards.map((board) => [board.id, board]))
   for (const pack of packs) {
     if (!pack.packNo.trim()) return '请填写包号'
+    if (pack.packNo.trim().length > 60) return `包号 ${pack.packNo} 超过 60 字，请缩短生产工单号`
     if (numbers.has(pack.packNo.trim())) return `包号 ${pack.packNo} 重复`
     numbers.add(pack.packNo.trim())
-    if (!pack.items.length) return `包号 ${pack.packNo} 没有板材`
+    if (!pack.items.length) return `包号 ${pack.packNo} 没有板材，请选定该空包并排入板材后保存`
     const origins = pack.items.map((item) => boardById.get(item.boardId))
     if (origins.some((board) => !board)) return '排包明细含有失效板材，请刷新工单'
+    if (pack.items.some((item) => !Number.isInteger(item.pieces) || item.pieces < 1))
+      return `包号 ${pack.packNo} 的块数必须为正整数`
+    if (pack.inboundAt) continue
     if (origins.some((board) => board?.area !== origins[0]?.area))
       return `包号 ${pack.packNo} 混入不同区域的板材`
     if (rule.sameNumber && origins.some((board) => board?.boardNo !== origins[0]?.boardNo))
       return `包号 ${pack.packNo} 混入不同编号的板材`
     if (!rule.allowMixLength && origins.some((board) => board?.lengthMm !== origins[0]?.lengthMm))
       return `包号 ${pack.packNo} 混入不同长度的板材`
-    if (pack.items.some((item) => !Number.isInteger(item.pieces) || item.pieces < 1))
-      return `包号 ${pack.packNo} 的块数必须为正整数`
     if (origins.some((board) => !board?.thicknessMm || board.thicknessMm <= 0))
       return `包号 ${pack.packNo} 的板材缺少有效板厚`
     if (
@@ -96,14 +110,13 @@ export function suggestPacks(
   boards: WorkOrderBoard[],
   existing: PackDraft[],
   rule: PackRule,
+  workOrderNo: string,
   preserveManual: boolean,
   selectedBoardIds?: ReadonlySet<string>
 ): PackDraft[] {
   const preserved = selectedBoardIds
     ? existing
-    : preserveManual
-      ? existing.filter((pack) => pack.manuallyAdjusted)
-      : []
+    : existing.filter((pack) => pack.inboundAt || (preserveManual && pack.manuallyAdjusted))
   const packs = preserved.map((pack) => ({
     ...pack,
     items: pack.items.map((item) => ({ ...item }))
@@ -122,13 +135,6 @@ export function suggestPacks(
       }
       return a.id.localeCompare(b.id)
     })
-  let serial = 1
-  const nextNo = (): string => {
-    let candidate = ''
-    do candidate = `PK-${String(serial++).padStart(4, '0')}`
-    while (packs.some((pack) => pack.packNo === candidate))
-    return candidate
-  }
   for (const board of sorted) {
     let remaining = remainingPieces(board, packs)
     if (
@@ -140,7 +146,11 @@ export function suggestPacks(
       continue
     while (remaining > 0) {
       const candidates = packs.filter((pack) => {
-        if (pack.manuallyAdjusted || (selectedBoardIds && preservedPackNos.has(pack.packNo)))
+        if (
+          pack.inboundAt ||
+          pack.manuallyAdjusted ||
+          (selectedBoardIds && preservedPackNos.has(pack.packNo))
+        )
           return false
         const first = boards.find((item) => item.id === pack.items[0]?.boardId)
         return (
@@ -171,7 +181,7 @@ export function suggestPacks(
       if (!target) {
         if (rule.remainderPolicy === 'manual' && remaining < rule.maxPieces) break
         target = {
-          packNo: nextNo(),
+          packNo: nextPackNo(workOrderNo, packs),
           manuallyAdjusted: false,
           confirmed: false,
           remark: '',

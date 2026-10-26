@@ -51,6 +51,11 @@
           <ElButton
             v-auth="'MesPacking:Repack'"
             :disabled="!selectedOrder || busy || !isPublished"
+            :title="
+              packs.some((pack) => pack.inboundAt)
+                ? '已入库包保持锁定，可继续调整未入库部分'
+                : undefined
+            "
             @click="repack"
           >
             <ArtSvgIcon icon="ri:restart-line" />重排包
@@ -152,7 +157,7 @@
               <span>自动排包规则</span>
               <ElSelect
                 v-model="selectedRuleId"
-                :disabled="!selectedOrder || isPublished"
+                :disabled="!selectedOrder || isPublished || packs.some((pack) => pack.inboundAt)"
                 placeholder="选择板材排包规则"
                 aria-label="板材排包规则"
               >
@@ -298,14 +303,23 @@
               <ElButton
                 v-auth="'MesPacking:Manual'"
                 size="small"
-                :disabled="selectedPacks.length < 2 || !canManual"
+                :disabled="
+                  selectedPacks.length < 2 ||
+                  !canManual ||
+                  selectedPacks.some((pack) => pack.inboundAt)
+                "
                 @click="mergePacks"
                 ><ArtSvgIcon icon="ri:git-merge-line" />合包</ElButton
               >
               <ElButton
                 v-auth="'MesPacking:Manual'"
                 size="small"
-                :disabled="selectedPacks.length !== 1 || !selectedPackItems.length || !canManual"
+                :disabled="
+                  selectedPacks.length !== 1 ||
+                  !selectedPackItems.length ||
+                  !canManual ||
+                  selectedPacks.some((pack) => pack.inboundAt)
+                "
                 @click="splitPack"
                 ><ArtSvgIcon icon="ri:git-branch-line" />拆包</ElButton
               >
@@ -342,6 +356,30 @@
                 >
               </div>
             </div>
+            <ElAlert
+              v-if="emptyPacks.length"
+              title="存在没有板材的历史包"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="shrink-0"
+            >
+              <p>选定下方空包，再从工单板材明细排入板材后保存。</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <ElButton
+                  v-for="pack in emptyPacks"
+                  :key="pack.id || pack.packNo"
+                  size="small"
+                  :type="selectedPack === pack ? 'primary' : 'default'"
+                  :disabled="!canManual"
+                  :title="pack.packNo"
+                  :aria-label="`选定空包 ${pack.packNo} 为并入目标`"
+                  class="max-w-full"
+                  @click="setTargetPack(pack)"
+                  ><span class="truncate">{{ pack.packNo }}</span></ElButton
+                >
+              </div>
+            </ElAlert>
             <div class="packing-page__linkage">
               <span>{{
                 activeBoard
@@ -365,36 +403,55 @@
               row-key="key"
               @selection-change="selectResultRows"
             >
-              <template #packNo="{ row }"
-                ><ElButton
+              <template #inboundStatus="{ row }"
+                ><ArtDictDisplay
+                  dict-code="wmsPackInboundStatus"
+                  :value="
+                    row.pack.inboundAt
+                      ? Number(row.pack.inboundQuantity) > 0
+                        ? 'received'
+                        : 'returned'
+                      : 'pending'
+                  "
+                  display="tag"
+              /></template>
+              <template #packNo="{ row }">
+                <span v-if="row.pack.inboundAt" :title="row.pack.packNo" class="block truncate">{{
+                  row.pack.packNo
+                }}</span>
+                <ElButton
+                  v-else
                   link
                   size="small"
                   type="primary"
                   :aria-label="`选定 ${row.pack.packNo} 为并入目标`"
+                  :title="row.pack.packNo"
+                  class="max-w-full"
                   @click="setTargetPack(row.pack)"
-                  >{{ row.pack.packNo }}</ElButton
+                  ><span class="truncate">{{ row.pack.packNo }}</span></ElButton
                 ></template
               >
               <template #pieces="{ row }"
                 ><ElInputNumber
+                  v-if="canManual && !row.pack.inboundAt"
                   v-model="row.item.pieces"
                   size="small"
                   :controls="false"
                   :min="1"
                   :max="availableForItem(row.item.boardId, row.item.pieces)"
                   :precision="0"
-                  :disabled="!canManual"
                   :aria-label="`${row.pack.packNo} 块数`"
                   class="w-full!"
                   @change="markManual(row.pack)"
-              /></template>
+                /><span v-else class="tabular-nums">{{ row.item.pieces }}</span></template
+              >
               <template #operation="{ row }"
                 ><ElButton
                   v-auth="'MesPacking:Manual'"
                   link
                   size="small"
                   type="danger"
-                  :disabled="!canManual"
+                  :disabled="!canManual || Boolean(row.pack.inboundAt)"
                   @click="removeItem(row.pack, row.item.boardId)"
                   >移出</ElButton
                 ></template
@@ -436,6 +493,7 @@
   import { storeToRefs } from 'pinia'
   import { useRouter } from 'vue-router'
   import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
+  import ArtDictDisplay from '@/components/core/base/art-dict-display/index.vue'
   import ArtEmptyState from '@/components/core/feedback/art-empty-state/index.vue'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
   import ArtSectionCard from '@/components/core/surfaces/art-section-card/index.vue'
@@ -461,7 +519,13 @@
     type PackRule,
     type WorkOrderBoard
   } from '@mes/api'
-  import { packTotals, remainingPieces, suggestPacks, validatePlan } from './modules/packing-plan'
+  import {
+    nextPackNo,
+    packTotals,
+    remainingPieces,
+    suggestPacks,
+    validatePlan
+  } from './modules/packing-plan'
   import PackingBoardSpecDialog from './modules/packing-board-spec-dialog.vue'
 
   defineOptions({ name: 'MesPacking' })
@@ -537,7 +601,15 @@
   ]
   const resultColumns: ColumnOption<PackingResultRow>[] = [
     { type: 'selection', width: 36 },
-    { prop: 'packNo', label: '包号', minWidth: 100, useSlot: true },
+    { prop: 'packNo', label: '包号', minWidth: 190, useSlot: true },
+    { prop: 'inboundStatus', label: '入库状态', width: 86, useSlot: true },
+    {
+      prop: 'inboundAreaSqm',
+      label: '入库面积 ㎡',
+      width: 106,
+      align: 'right',
+      formatter: (row) => Number(row.pack.inboundAreaSqm || 0).toFixed(2)
+    },
     {
       prop: 'area',
       label: '区域',
@@ -580,6 +652,7 @@
   const activeBoard = computed(() => boardById(activeBoardId.value))
   const resultTableRef = ref<ArtTableExpose>()
   const selectedResultRows = ref<PackingResultRow[]>([])
+  const emptyPacks = computed(() => packs.value.filter((pack) => !pack.items.length))
   const resultRows = computed<PackingResultRow[]>(() =>
     packs.value.flatMap((pack) =>
       pack.items
@@ -599,6 +672,7 @@
     selectedPackItems.value = []
   }
   function setTargetPack(pack: PackDraft): void {
+    if (pack.inboundAt) return
     clearResultSelection()
     selectedPack.value = pack
   }
@@ -606,7 +680,8 @@
     selectedResultRows.value = rows
     selectedPacks.value = uniq(rows.map((row) => row.pack))
     selectedPackItems.value = selectedPacks.value.length === 1 ? rows.map((row) => row.item) : []
-    if (selectedPacks.value.length === 1) selectedPack.value = selectedPacks.value[0]
+    if (selectedPacks.value.length === 1)
+      selectedPack.value = selectedPacks.value[0].inboundAt ? null : selectedPacks.value[0]
   }
   function linkBoard(row: { id?: unknown }, column?: { type?: string }): void {
     if (column?.type === 'selection' || typeof row.id !== 'string') return
@@ -772,6 +847,9 @@
         manuallyAdjusted: pack.manuallyAdjusted,
         confirmed: pack.confirmed,
         remark: pack.remark,
+        inboundQuantity: pack.inboundQuantity,
+        inboundAreaSqm: pack.inboundAreaSqm,
+        inboundAt: pack.inboundAt,
         items: pack.items.map((item) => ({
           boardId: item.boardId,
           pieces: item.pieces,
@@ -856,6 +934,11 @@
       workOrderDetail.openingId = ''
     }
   }
+  function boardHasReceivedPack(id: string): boolean {
+    return packs.value.some(
+      (pack) => Boolean(pack.inboundAt) && pack.items.some((item) => item.boardId === id)
+    )
+  }
   function openSpec(row: Record<string, unknown>): void {
     if (isPublished.value) return
     if (dirty.value) {
@@ -863,22 +946,16 @@
       return
     }
     const board = typeof row.id === 'string' ? boardById(row.id) : undefined
-    if (board) void specDialogRef.value?.handleOpen(board)
+    if (board && !boardHasReceivedPack(board.id)) void specDialogRef.value?.handleOpen(board)
   }
   function markManual(pack: PackDraft): void {
+    if (pack.inboundAt) return
     pack.manuallyAdjusted = true
     pack.confirmed = false
     dirty.value = true
   }
-  function nextPackNo(): string {
-    let serial = 1
-    let candidate = ''
-    do candidate = `PK-${String(serial++).padStart(4, '0')}`
-    while (packs.value.some((pack) => pack.packNo === candidate))
-    return candidate
-  }
   function addPieces(board: WorkOrderBoard, pack: PackDraft, amount = remaining(board)): void {
-    if (!canManual.value) return
+    if (!canManual.value || pack.inboundAt) return
     const rule = selectedRule.value
     if (!rule) {
       ElMessage.warning('请先选择当前板厚适用的排包规则')
@@ -931,7 +1008,8 @@
     if (capacity < amount) ElMessage.info(`本包排入 ${capacity} 块，其余可继续新建包`)
   }
   function createPack(): void {
-    if (!canManual.value) return
+    const order = selectedOrder.value
+    if (!canManual.value || !order) return
     const rows = selectedBoards.value.filter((board) => remaining(board) > 0)
     if (!rows.length) return
     const rule = selectedRule.value
@@ -948,6 +1026,7 @@
       boards.value,
       packs.value,
       rule,
+      order.workOrderNo,
       true,
       new Set(rows.map((row) => row.id))
     )
@@ -996,7 +1075,7 @@
     }
   }
   function removeItem(pack: PackDraft, boardId: string): void {
-    if (!canManual.value) return
+    if (!canManual.value || pack.inboundAt) return
     clearResultSelection()
     pack.items = pack.items.filter((item) => item.boardId !== boardId)
     if (!pack.items.length) {
@@ -1006,7 +1085,12 @@
     dirty.value = true
   }
   function mergePacks(): void {
-    if (!canManual.value || selectedPacks.value.length < 2) return
+    if (
+      !canManual.value ||
+      selectedPacks.value.length < 2 ||
+      selectedPacks.value.some((pack) => pack.inboundAt)
+    )
+      return
     const [target, ...sources] = selectedPacks.value
     const rule = selectedRule.value
     if (!rule) {
@@ -1039,9 +1123,10 @@
     markManual(target)
   }
   async function splitPack(): Promise<void> {
-    if (!canManual.value) return
+    const order = selectedOrder.value
+    if (!canManual.value || !order) return
     const source = selectedPack.value
-    if (!source || !selectedPackItems.value.length) return
+    if (!source || source.inboundAt || !selectedPackItems.value.length) return
     const chosen = selectedPackItems.value.filter((item) => source.items.includes(item))
     if (!chosen.length) return
     let moved: PackDraft['items']
@@ -1072,7 +1157,7 @@
       source.items = source.items.filter((item) => !chosen.includes(item))
     }
     const created: PackDraft = {
-      packNo: nextPackNo(),
+      packNo: nextPackNo(order.workOrderNo, packs.value),
       manuallyAdjusted: true,
       confirmed: false,
       remark: '',
@@ -1085,7 +1170,8 @@
     markManual(source)
   }
   async function autoPack(): Promise<void> {
-    if (!hasAuth('MesPacking:Auto') || isPublished.value) return
+    const order = selectedOrder.value
+    if (!hasAuth('MesPacking:Auto') || isPublished.value || !order) return
     const rule = selectedRule.value
     if (!rule) {
       ElMessage.warning('当前租户尚未启用板材排包规则')
@@ -1098,17 +1184,27 @@
     let preserveManual = true
     if (packs.value.length) {
       try {
-        await confirm('保留人工调整包，仅对其余板材重新排包？', { title: '自动排包' })
+        await confirm('已入库包始终保留。是否同时保留人工调整包，仅对其余板材重新排包？', {
+          title: '自动排包'
+        })
       } catch {
         try {
-          await confirm('清空现有排包结果并重新计算？人工调整也会丢失。', { title: '重新计算全部' })
+          await confirm('保留已入库包，重新计算其余排包结果？未入库的人工调整会丢失。', {
+            title: '重新计算全部'
+          })
         } catch {
           return
         }
         preserveManual = false
       }
     }
-    const proposed = suggestPacks(boards.value, cloneDeep(packs.value), rule, preserveManual)
+    const proposed = suggestPacks(
+      boards.value,
+      cloneDeep(packs.value),
+      rule,
+      order.workOrderNo,
+      preserveManual
+    )
     clearBoardFilter()
     packs.value = proposed
     selectedPack.value = null
@@ -1183,7 +1279,7 @@
     if (!selectedOrder.value || !hasAuth('MesPacking:Repack') || busy.value || !isPublished.value)
       return
     try {
-      await confirm('重排包后恢复编辑，已保存的排包明细会保留。是否继续？', {
+      await confirm('重排包后可调整未入库部分；已入库包及其板材生产资料保持锁定。是否继续？', {
         title: '重排包'
       })
     } catch {

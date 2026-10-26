@@ -310,6 +310,8 @@ export interface MesWorkOrder {
   salesOrderQuantity: number | null
   completedQuantity: number
   warehousedQuantity: number
+  finishedInboundMode?: 'order' | 'pack' | null
+  finishedInboundAreaSqm?: number
   printCount: number
   materialCodeSnapshot: string
   materialNameSnapshot: string

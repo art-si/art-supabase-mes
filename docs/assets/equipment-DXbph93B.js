@@ -1,1 +1,0 @@
-import{$ as e,Ot as t,ct as n}from"./dist-1QnCqFHv.js";import{t as r}from"./execution-event-workspace-CcnyhYfs.js";var i=n({name:`MesEquipment`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{mode:`equipment`}))}});export{i as default};
