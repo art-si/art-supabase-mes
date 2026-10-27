@@ -279,7 +279,7 @@
       height: 34px;
       color: var(--el-color-primary);
       background: var(--el-bg-color);
-      border-radius: 9px;
+      border-radius: var(--art-surface-radius);
     }
 
     small,
@@ -325,7 +325,7 @@
       height: 28px;
       color: var(--el-color-success);
       background: var(--el-color-success-light-9);
-      border-radius: 8px;
+      border-radius: var(--art-surface-radius);
     }
 
     li > div {
@@ -372,7 +372,7 @@
       height: 34px;
       color: var(--el-color-warning-dark-2);
       background: var(--el-color-warning-light-9);
-      border-radius: 9px;
+      border-radius: var(--art-surface-radius);
     }
 
     small,
@@ -431,7 +431,7 @@
       font-weight: 700;
       color: var(--el-color-primary);
       background: color-mix(in srgb, var(--theme-color) 10%, var(--el-bg-color));
-      border-radius: 9px;
+      border-radius: var(--art-surface-radius);
     }
 
     header small,

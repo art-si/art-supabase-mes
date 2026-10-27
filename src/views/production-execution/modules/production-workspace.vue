@@ -14,7 +14,7 @@
             v-if="entry === 'report'"
             v-auth="'MesProductionReport:Report'"
             type="primary"
-            :disabled="!selectedTask?.startedAt"
+            :disabled="!canReportExecutionTask(selectedTask)"
             @click="chooseAction('report')"
             ><ArtSvgIcon icon="ri:edit-box-line" />提交工序报工</ElButton
           ></template
@@ -117,6 +117,10 @@
                     :class="{ 'is-active': item.id === selectedTask?.id }"
                     :aria-pressed="item.id === selectedTask?.id"
                     @click="selectTask(item)"
+                    @dblclick="viewWorkOrder(item)"
+                    :title="
+                      hasAuth('MesWorkOrder:View') ? '单击选择任务，双击查看生产工单' : undefined
+                    "
                   >
                     <span class="production-workspace__task-top"
                       ><strong>{{ item.workOrder?.workOrderNo || '—' }}</strong
@@ -182,14 +186,23 @@
                     <div class="production-workspace__hero"
                       ><span>任务单号</span><strong>{{ selectedTask.taskNo }}</strong
                       ><ElTag :type="selectedTask.startedAt ? 'success' : 'info'" effect="plain">{{
-                        selectedTask.startedAt ? '已开工' : '待开工'
+                        selectedTask.startedAt
+                          ? '已开工'
+                          : selectedTaskIsFirst
+                            ? '待开工'
+                            : taskStatus(selectedTask)
                       }}</ElTag></div
                     >
                     <div class="production-workspace__primary-actions">
                       <ElButton
+                        v-if="selectedTaskIsFirst"
                         v-auth="'MesProductionReport:Start'"
                         :type="selectedTask.startedAt ? 'default' : 'primary'"
-                        :disabled="Boolean(selectedTask.startedAt) || starting"
+                        :disabled="
+                          Boolean(selectedTask.startedAt) ||
+                          starting ||
+                          ['completed', 'closed'].includes(selectedTask.operationStatus)
+                        "
                         :loading="starting"
                         @click="chooseAction('start')"
                       >
@@ -199,15 +212,15 @@
                       </ElButton>
                       <ElButton
                         v-auth="'MesProductionReport:Report'"
-                        :type="selectedTask.startedAt ? 'primary' : 'default'"
-                        :disabled="!selectedTask.startedAt"
+                        :type="canReportExecutionTask(selectedTask) ? 'primary' : 'default'"
+                        :disabled="!canReportExecutionTask(selectedTask)"
                         @click="chooseAction('report')"
                       >
                         <ArtSvgIcon icon="ri:edit-box-line" />工序报工
                       </ElButton>
                       <ElButton
                         v-auth="'MesProductionReport:Feed'"
-                        :disabled="!selectedTask.startedAt || !materials.length"
+                        :disabled="!selectedTaskReady || !materials.length"
                         @click="openConsoleAction('feeding')"
                       >
                         <ArtSvgIcon icon="ri:archive-line" />记录投料
@@ -245,7 +258,7 @@
                           {{ selectedTask.completedQuantity }}</strong
                         ></div
                       >
-                      <div
+                      <div v-if="selectedTaskIsFirst"
                         ><span>开始加工</span
                         ><strong>{{ formatDateTime(selectedTask.startedAt) }}</strong></div
                       >
@@ -273,7 +286,17 @@
                     <div class="production-workspace__facts">
                       <div
                         ><span>生产工单</span
-                        ><strong>{{ selectedTask.workOrder?.workOrderNo || '—' }}</strong></div
+                        ><ElButton
+                          v-if="hasAuth('MesWorkOrder:View')"
+                          link
+                          type="primary"
+                          :loading="workOrderOpeningId === selectedTask.workOrderId"
+                          @click="viewWorkOrder(selectedTask)"
+                          >{{ selectedTask.workOrder?.workOrderNo || '查看生产工单' }}</ElButton
+                        >
+                        <strong v-else>{{
+                          selectedTask.workOrder?.workOrderNo || '—'
+                        }}</strong></div
                       >
                       <div
                         ><span>项目名称</span
@@ -375,7 +398,7 @@
           >
           <div v-if="consoleMode === 'menu'" class="production-workspace__console-grid">
             <button
-              v-for="action in consoleActions"
+              v-for="action in visibleConsoleActions"
               :key="action.id"
               v-auth="action.permission"
               type="button"
@@ -430,7 +453,7 @@
                 :data="materials"
                 :table-columns="feedColumns"
                 :table-props="{
-                  rowKey: 'component_material_code',
+                  rowKey: 'componentMaterialCode',
                   height: 'auto',
                   emptyText: '当前工序未分配投料物料'
                 }"
@@ -477,7 +500,7 @@
           </div>
         </div>
       </ArtDrawer>
-      <ArtDialog ref="clockDialogRef" size="sm" :show-fullscreen-button="false"
+      <ArtDialog ref="clockDialogRef" size="sm"
         ><ArtForm
           ref="clockFormRef"
           :model-value="clockForm"
@@ -496,7 +519,7 @@
               multiple
               placeholder="请选择上机人员" /></ElFormItem></ArtForm
       ></ArtDialog>
-      <ArtDialog ref="feedDialogRef" size="md" :show-fullscreen-button="false"
+      <ArtDialog ref="feedDialogRef" size="md"
         ><ArtForm
           ref="feedFormRef"
           :model-value="feedForm"
@@ -511,9 +534,9 @@
             ><ElSelect v-model="feedForm.materialCode" filterable placeholder="选择本工序物料"
               ><ElOption
                 v-for="item in materials"
-                :key="item.component_material_code"
-                :value="item.component_material_code || ''"
-                :label="`${item.component_material_code} · ${item.component_material_name}`" /></ElSelect></ElFormItem
+                :key="item.componentMaterialCode"
+                :value="item.componentMaterialCode || ''"
+                :label="`${item.componentMaterialCode} · ${item.componentMaterialName}`" /></ElSelect></ElFormItem
           ><ElFormItem label="投料数量" prop="quantity" required
             ><ElInputNumber
               v-model="feedForm.quantity"
@@ -535,6 +558,11 @@
               maxlength="500" /></ElFormItem></ArtForm
       ></ArtDialog>
       <ProductionReportForm ref="reportFormRef" @saved="reload" />
+      <component
+        :is="workOrderDialogComponent"
+        ref="workOrderDialogRef"
+        :key="effectiveTenantId || 'all'"
+      />
     </div>
   </ArtPermissionGuard>
 </template>
@@ -561,6 +589,10 @@
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
+  import { useAuth } from '@/hooks/core/useAuth'
+  import { useLazyComponent } from '@/hooks/core/useLazyComponent'
+  import { useTenantScopeStore } from '@/store/modules/tenant-scope'
+  import type { WorkOrderDialogOpenData } from '../../components/manufacturing/modules/work-order-dialog.vue'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
@@ -572,6 +604,8 @@
     fetchExecutionPeople,
     fetchExecutionShiftNames,
     fetchExecutionTasks,
+    fetchExecutionTaskRules,
+    fetchWorkOrders,
     saveExecutionEvent,
     startExecution,
     type MesExecutionAttendance,
@@ -585,8 +619,20 @@
   import { buildExecutionUserOptions } from './execution-user-options'
   import ExecutionEventWorkspace from './execution-event-workspace.vue'
   import ProductionReportForm from './production-report-form.vue'
+  import {
+    canReportExecutionTask,
+    executionRouteStep,
+    isFirstExecutionTask
+  } from './execution-task-rules'
 
   const completionOptions = useDictionaryOptions('mesProductionCompletionFilter')
+  const { hasAuth } = useAuth()
+  const tenantScope = useTenantScopeStore()
+  const workOrderOpeningId = ref('')
+  const { component: workOrderDialogComponent, load: loadWorkOrderDialog } = useLazyComponent(
+    () => import('../../components/manufacturing/modules/work-order-dialog.vue')
+  )
+  const workOrderDialogRef = ref<{ handleOpen: (data: WorkOrderDialogOpenData) => Promise<void> }>()
 
   type ConsoleMode =
     | 'menu'
@@ -625,6 +671,16 @@
   const total = ref(0)
   const page = ref(1)
   const selectedTask = ref<MesExecutionTask | null>(null)
+  const selectedTaskIsFirst = computed(() =>
+    Boolean(selectedTask.value && isFirstExecutionTask(selectedTask.value))
+  )
+  const selectedTaskReady = computed(() =>
+    Boolean(
+      selectedTask.value &&
+      !['completed', 'closed'].includes(selectedTask.value.operationStatus) &&
+      (!selectedTaskIsFirst.value || selectedTask.value.startedAt)
+    )
+  )
   const attendance = ref<MesExecutionAttendance[]>([])
   const people = ref<MesExecutionPerson[]>([])
   const userOptions = computed(() => buildExecutionUserOptions(people.value))
@@ -796,23 +852,23 @@
       ? '现场操作台'
       : consoleActions.find((item) => item.id === consoleMode.value)?.label || '现场操作'
   )
-  const routeStepFor = (task: MesExecutionTask) =>
-    task.workOrder?.routeSnapshot?.steps?.find(
-      (step) => step.id === task.routeStepSnapshotId || step.code === task.operationCode
-    )
+  const visibleConsoleActions = computed(() =>
+    consoleActions.filter((action) => action.id !== 'start' || selectedTaskIsFirst.value)
+  )
+  const routeStepFor = executionRouteStep
   const currentStep = computed(() =>
     selectedTask.value ? routeStepFor(selectedTask.value) : undefined
   )
   const taskPlannedHours = (task: MesExecutionTask) => {
     const step = routeStepFor(task)
-    const minutes = Number(step?.run_processing_minutes || 0)
-    const perRun = Number(step?.run_output_quantity || 0)
+    const minutes = Number(step?.runProcessingMinutes || 0)
+    const perRun = Number(step?.runOutputQuantity || 0)
     return minutes > 0 && perRun > 0
       ? `标准 ${((task.plannedQuantity * minutes) / perRun / 60).toFixed(1)} h`
       : '标准工时待配置'
   }
   const sopDocuments = computed(() =>
-    (currentStep.value?.sop_documents || []).map((item) => {
+    (currentStep.value?.sopDocuments || []).map((item) => {
       const document = esopDocuments.value.find((entry) => entry.id === item.id)
       return {
         id: item.id,
@@ -827,17 +883,17 @@
         ?.flatMap((bom) => bom.items || [])
         .filter(
           (item) =>
-            item.assigned_route_step_id === selectedTask.value?.routeStepSnapshotId ||
-            (!item.assigned_route_step_id &&
-              item.assigned_operation_code === selectedTask.value?.operationCode)
+            item.assignedRouteStepId === selectedTask.value?.routeStepSnapshotId ||
+            (!item.assignedRouteStepId &&
+              item.assignedOperationCode === selectedTask.value?.operationCode)
         ) || []
   )
   const feedColumns: ColumnOption[] = [
-    { prop: 'component_material_code', label: '物料编码', minWidth: 150 },
-    { prop: 'component_material_name', label: '物料名称', minWidth: 160 },
-    { prop: 'component_specification', label: '规格', minWidth: 120 },
-    { prop: 'required_quantity', label: '需求数量', minWidth: 100 },
-    { prop: 'unit_name', label: '单位', minWidth: 80 }
+    { prop: 'componentMaterialCode', label: '物料编码', minWidth: 150 },
+    { prop: 'componentMaterialName', label: '物料名称', minWidth: 160 },
+    { prop: 'componentSpecification', label: '规格', minWidth: 120 },
+    { prop: 'requiredQuantity', label: '需求数量', minWidth: 100 },
+    { prop: 'unitName', label: '单位', minWidth: 80 }
   ]
   const taskPercent = (item: MesExecutionTask) =>
     item.plannedQuantity > 0
@@ -879,11 +935,19 @@
         shiftName: shiftName.value
       })
       if (version !== taskVersion) return
-      tasks.value = result.data
+      const rules = await fetchExecutionTaskRules(result.data.map((task) => task.id))
+      if (version !== taskVersion) return
+      const rulesByTask = new Map(rules.map((rule) => [rule.taskId, rule]))
+      if (result.data.some((task) => !rulesByTask.has(task.id)))
+        throw new Error('工序执行规则缺失，请刷新后重试')
+      tasks.value = result.data.map((task) => ({
+        ...task,
+        executionRules: rulesByTask.get(task.id)
+      }))
       total.value = result.total
       hasLoaded.value = true
       selectedTask.value =
-        result.data.find((item) => item.id === selectedTask.value?.id) || result.data[0] || null
+        tasks.value.find((item) => item.id === selectedTask.value?.id) || tasks.value[0] || null
       void loadAttendance()
     } catch {
       if (version === taskVersion) error.value = '任务加载失败，请重试'
@@ -928,7 +992,7 @@
       esopDocuments.value = []
       return
     }
-    const ids = (currentStep.value?.sop_documents || [])
+    const ids = (currentStep.value?.sopDocuments || [])
       .filter((item) => item.type === 'esop')
       .map((item) => item.id)
     try {
@@ -944,6 +1008,41 @@
   function selectTask(item: MesExecutionTask) {
     selectedTask.value = item
     void Promise.all([loadAttendance(), loadFeedRows(), loadEsopDocuments()])
+  }
+  async function viewWorkOrder(task: MesExecutionTask): Promise<void> {
+    if (!hasAuth('MesWorkOrder:View') || workOrderOpeningId.value) return
+    workOrderOpeningId.value = task.workOrderId
+    const scope = effectiveTenantId.value
+    try {
+      const [result] = await Promise.all([
+        fetchWorkOrders({
+          current: 1,
+          size: 1,
+          recordId: task.workOrderId,
+          tenantId: task.tenantId
+        }),
+        loadWorkOrderDialog()
+      ])
+      if (scope !== effectiveTenantId.value) return
+      const row = result.data[0]
+      if (!row) {
+        ElMessage.warning('工单已变更或暂无查看权限，请刷新后重试')
+        return
+      }
+      await workOrderDialogRef.value?.handleOpen({
+        tenantId: row.tenantId,
+        tenantOptions: tenantScope.tenantOptions.map((tenant) => ({
+          label: tenant.tenantName,
+          value: tenant.id
+        })),
+        row,
+        readonly: true
+      })
+    } catch (error) {
+      notifyFriendlyError(error, '生产工单加载失败，请重试')
+    } finally {
+      workOrderOpeningId.value = ''
+    }
   }
   async function resetFilters() {
     if (resetting.value) return
@@ -973,7 +1072,7 @@
     const task = selectedTask.value
     if (!task) return
     if (id === 'start') {
-      if (starting.value || task.startedAt) return
+      if (!isFirstExecutionTask(task) || starting.value || task.startedAt) return
       if (!task.workCenterId) {
         ElMessage.warning('请先为任务分配工作中心')
         return
@@ -990,8 +1089,12 @@
       return
     }
     if (id === 'report') {
-      if (!task.startedAt) {
-        ElMessage.warning('请先开始加工')
+      if (!canReportExecutionTask(task)) {
+        ElMessage.warning(
+          isFirstExecutionTask(task) && !task.startedAt
+            ? '请先开始加工'
+            : '该工序当前无需报工或不可报工，请刷新任务状态'
+        )
         return
       }
       reportFormRef.value?.open(task, people.value)
@@ -1005,7 +1108,7 @@
     const task = selectedTask.value
     if (!task?.workCenterId || !materials.value.length) return
     Object.assign(feedForm, {
-      materialCode: materials.value[0]?.component_material_code || '',
+      materialCode: materials.value[0]?.componentMaterialCode || '',
       quantity: 1,
       batchNo: '',
       personId: '',
@@ -1016,7 +1119,7 @@
       title: '记录投料',
       onConfirm: async () => {
         const material = materials.value.find(
-          (item) => item.component_material_code === feedForm.materialCode
+          (item) => item.componentMaterialCode === feedForm.materialCode
         )
         try {
           if (!(await validateArtFormForSubmit(feedFormRef.value))) return false
@@ -1035,13 +1138,13 @@
             workCenterId: task.workCenterId,
             action: 'create',
             payload: {
-              title: `投料 ${material.component_material_code}`,
+              title: `投料 ${material.componentMaterialCode}`,
               quantity: feedForm.quantity,
               handlerPersonId: feedForm.personId || null,
               details: {
-                materialCode: material.component_material_code,
-                materialName: material.component_material_name,
-                unitName: material.unit_name,
+                materialCode: material.componentMaterialCode,
+                materialName: material.componentMaterialName,
+                unitName: material.unitName,
                 batchNo: feedForm.batchNo.trim()
               },
               media: [],

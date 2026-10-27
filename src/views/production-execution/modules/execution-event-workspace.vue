@@ -354,7 +354,7 @@
         </div>
       </ArtWorkspaceSplitter>
 
-      <ArtDialog ref="formDialogRef" size="lg" :show-fullscreen-button="false">
+      <ArtDialog ref="formDialogRef" size="lg">
         <div class="execution-event-page__form">
           <div class="execution-event-page__form-intro">
             <ArtSvgIcon :icon="icon" />
@@ -667,7 +667,7 @@
         </div>
       </ArtDialog>
 
-      <ArtDialog ref="actionDialogRef" size="sm" :show-fullscreen-button="false">
+      <ArtDialog ref="actionDialogRef" size="sm">
         <ArtForm
           ref="actionFormRef"
           :model-value="actionForm"

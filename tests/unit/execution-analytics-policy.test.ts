@@ -23,7 +23,15 @@ const task = {
   department: { name: '加工车间' },
   workOrder: {
     routeSnapshot: {
-      steps: [{ id: 'step-1', run_processing_minutes: 60, run_output_quantity: 10 }]
+      steps: [
+        {
+          id: 'step-1',
+          code: 'OP-01',
+          name: '加工',
+          runProcessingMinutes: 60,
+          runOutputQuantity: 10
+        }
+      ]
     }
   },
   allocations: [

@@ -13,6 +13,7 @@ import type {
   MesExecutionListQuery,
   MesExecutionPerson,
   MesExecutionTask,
+  MesExecutionTaskRules,
   MesExecutionCalendarShift,
   MesProductionReport,
   MesReportInput
@@ -171,6 +172,15 @@ export async function fetchExecutionShiftNames(tenantId?: string | null) {
   )
   if (error) throw error
   return uniq((data ?? []).map((item) => item.shiftNameSnapshot).filter(Boolean))
+}
+
+export async function fetchExecutionTaskRules(taskIds: string[]): Promise<MesExecutionTaskRules[]> {
+  if (!taskIds.length) return []
+  const { data } = await responseHandle<MesExecutionTaskRules[]>(
+    () => supabase.rpc('mes_execution_task_rules', { p_task_ids: taskIds }),
+    { ...readOptions, errorMessage: '工序执行规则加载失败，请重试' }
+  )
+  return data ?? []
 }
 
 export async function fetchProductionReportShiftNames(

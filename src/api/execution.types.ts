@@ -55,6 +55,7 @@ export interface MesExecutionTask extends Pick<
   equipmentNameSnapshot: string | null
   processContent: string | null
   routeStepSnapshotId: string | null
+  executionRules?: MesExecutionTaskRules
   allocations?: Array<{
     id: string
     workCenterId: string
@@ -81,26 +82,39 @@ export interface MesExecutionTask extends Pick<
         id: string
         code: string
         name: string
-        run_processing_minutes?: number
-        run_output_quantity?: number
-        setup_minutes?: number
-        sop_documents?: Array<{ type: string; id: string; name?: string; url?: string }>
+        sort?: number
+        sequenceNo?: number
+        sequenceType?: string
+        controlCode?: string
+        reportMode?: string
+        sequenceControl?: string
+        runProcessingMinutes?: number
+        runOutputQuantity?: number
+        setupMinutes?: number
+        sopDocuments?: Array<{ type: string; id: string; name?: string; url?: string }>
       }>
     } | null
     bomSnapshot?: Array<{
       items?: Array<{
-        assigned_route_step_id?: string
-        assigned_operation_code?: string
-        component_material_code?: string
-        component_material_name?: string
-        component_specification?: string
-        required_quantity?: number
-        unit_name?: string
+        assignedRouteStepId?: string
+        assignedOperationCode?: string
+        componentMaterialCode?: string
+        componentMaterialName?: string
+        componentSpecification?: string
+        requiredQuantity?: number
+        unitName?: string
       }>
     }> | null
   } | null
   department?: { code: string; name: string } | null
   workCenter?: { code: string; name: string; departmentId: string } | null
+}
+
+export interface MesExecutionTaskRules {
+  taskId: string
+  firstTaskId: string | null
+  controlCode: string
+  reportMode: string
 }
 
 export interface MesExecutionPerson {
@@ -148,9 +162,9 @@ export interface MesProductionReport {
   id: string
   tenantId: string
   taskId: string
-  workCenterId: string
+  workCenterId: string | null
   equipmentId: string | null
-  startedAt: string
+  startedAt: string | null
   reportedAt: string
   shiftName: string
   goodQuantity: number
@@ -169,6 +183,7 @@ export interface MesProductionReport {
   rejectReason: string
   reviewedAt: string | null
   reviewerName: string
+  systemSourceReportId?: string | null
   task?: MesExecutionTask
   workCenter?: { code: string; name: string } | null
   defects?: MesReportDefect[]

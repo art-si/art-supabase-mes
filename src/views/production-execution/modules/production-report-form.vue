@@ -1,5 +1,5 @@
 <template>
-  <ArtDialog ref="dialogRef" size="lg" :show-fullscreen-button="false">
+  <ArtDialog ref="dialogRef" size="lg">
     <div class="report-form">
       <div class="report-form__context">
         <div
@@ -23,6 +23,22 @@
           ></div
         >
       </div>
+      <ElAlert
+        v-if="reportControlCode === 'SY06' || reportControlCode === 'SY05'"
+        :closable="false"
+        type="info"
+        show-icon
+        :title="
+          reportControlCode === 'SY06'
+            ? '必须汇报 · 审批后自动补报前道'
+            : '末道工序审批后触发完工入库'
+        "
+        :description="
+          reportControlCode === 'SY06'
+            ? '按已确认产量补齐同一序列前道工序的未报数量，自动记录注明“系统自报工”；已有报工不重复计量。'
+            : '沿用工单已确定的入库模式；未确定模式或缺少仓库、仓位等资料时生成完工入库草稿，补充后确认。'
+        "
+      />
       <ArtForm
         ref="formRef"
         :model-value="form"
@@ -246,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+  import { executionRouteStep } from './execution-task-rules'
   import ArtAsyncState from '@/components/core/feedback/art-async-state/index.vue'
   import { replaceReactiveModel } from '@/utils/form/model'
   import { computed, nextTick, reactive, ref } from 'vue'
@@ -278,6 +295,10 @@
   const dialogRef = ref<ArtDialogExpose>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
   const task = ref<MesExecutionTask | null>(null)
+  const reportStep = computed(() => (task.value ? executionRouteStep(task.value) : undefined))
+  const reportControlCode = computed(
+    () => task.value?.executionRules?.controlCode ?? reportStep.value?.controlCode
+  )
   const editingReport = ref<MesProductionReport | null>(null)
   const people = ref<MesExecutionPerson[]>([])
   const userOptions = computed(() => buildExecutionUserOptions(people.value))

@@ -555,6 +555,7 @@
     ids.map((id) => people.value.find((person) => person.id === id)?.name || id).join('、') || '—'
   const machineHours = (raw: unknown) => {
     const row = raw as MesProductionReport
+    if (!row.startedAt) return 0
     return Math.max(0, dayjs(row.reportedAt).diff(dayjs(row.startedAt)) / 3600000)
   }
   const laborHours = (raw: unknown) => {
@@ -576,8 +577,8 @@
     const step = row.task?.workOrder?.routeSnapshot?.steps?.find(
       (item) => item.id === row.task?.routeStepSnapshotId || item.code === row.task?.operationCode
     )
-    const minutes = Number(step?.run_processing_minutes || 0)
-    const quantity = Number(step?.run_output_quantity || 0)
+    const minutes = Number(step?.runProcessingMinutes || 0)
+    const quantity = Number(step?.runOutputQuantity || 0)
     return minutes > 0 && quantity > 0 ? (quantity * 60) / minutes : null
   }
   const formatCapacity = (raw: unknown) => {

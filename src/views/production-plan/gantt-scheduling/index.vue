@@ -227,7 +227,10 @@
   import { useArtFeedback } from '@/hooks/core/useArtFeedback'
   import { useTenantScopeStore } from '@/store/modules/tenant-scope'
   import TreeUtils from '@/utils/tree'
-  import { getDepartmentsWithWorkCenters } from '@/utils/business/production-scope'
+  import {
+    formatProductionDepartmentPath,
+    getDepartmentsWithWorkCenters
+  } from '@/utils/business/production-scope'
   import {
     fetchGanttCalendar,
     fetchOperationTaskScope,
@@ -351,12 +354,6 @@
     productionTree
       .getDescendants(departmentTree.value, departmentId, true)
       .map((item) => String(item.id))
-  const departmentPath = (department: MesProductionDepartment): string => {
-    const path = departmentPaths.value.get(department.id)
-    if (effectiveTenantId.value) return path || department.name
-    const tenant = tenantOptions.value.find((item) => item.id === department.tenantId)
-    return `${tenant?.tenantName || '当前租户'} / ${path || department.name}`
-  }
   const departmentsWithWorkCenters = computed(() =>
     getDepartmentsWithWorkCenters(state.departments, state.workCenters)
   )
@@ -372,7 +369,12 @@
         id: department.id,
         name: department.name,
         code: department.code,
-        path: departmentPath(department)
+        path: formatProductionDepartmentPath(
+          department,
+          departmentPaths.value,
+          effectiveTenantId.value,
+          tenantOptions.value
+        )
       }))
   )
   const workCentersForWorkshop = computed(() => {

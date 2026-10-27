@@ -381,9 +381,7 @@
     const step = task?.workOrder?.routeSnapshot?.steps?.find(
       (item) => item.id === task.routeStepSnapshotId || item.code === task.operationCode
     )
-    return typeof step?.setup_minutes === 'number'
-      ? `${(step.setup_minutes / 60).toFixed(2)} h`
-      : '—'
+    return typeof step?.setupMinutes === 'number' ? `${(step.setupMinutes / 60).toFixed(2)} h` : '—'
   }
   let loadVersion = 0
   async function loadRows() {

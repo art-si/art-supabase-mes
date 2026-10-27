@@ -199,7 +199,7 @@
                       @click="openDetail(row)" /></template></ElTableColumn></ArtTableQuery
             ></div> </div></div
       ></ArtWorkspaceSplitter>
-      <ArtDialog ref="formDialogRef" size="sm" :show-fullscreen-button="false">
+      <ArtDialog ref="formDialogRef" size="sm">
         <ArtForm
           ref="formRef"
           v-model="form"

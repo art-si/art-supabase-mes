@@ -215,8 +215,8 @@ export function buildPersonEfficiencyRows(
       (item) =>
         item.id === report.task?.routeStepSnapshotId || item.code === report.task?.operationCode
     )
-    const minutes = Number(step?.run_processing_minutes || 0)
-    const outputQuantity = Number(step?.run_output_quantity || 0)
+    const minutes = Number(step?.runProcessingMinutes || 0)
+    const outputQuantity = Number(step?.runOutputQuantity || 0)
     const standardHours =
       minutes > 0 && outputQuantity > 0
         ? (report.goodQuantity * minutes) / outputQuantity / 60
