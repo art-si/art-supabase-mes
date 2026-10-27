@@ -1,15 +1,11 @@
 import type { PackDraft, PackRule, WorkOrderBoard } from '@mes/api'
 
-export function nextPackNo(workOrderNo: string, packs: Pick<PackDraft, 'packNo'>[]): string {
-  const prefix = `${workOrderNo.trim()}-`
-  if (prefix === '-') throw new Error('生产工单号为空，请刷新工单后重试')
+export function nextPackNo(packs: Pick<PackDraft, 'packNo'>[]): string {
   const serial = packs.reduce((highest, pack) => {
-    const number = pack.packNo.trim()
-    const localNumber = number.startsWith(prefix) ? number.slice(prefix.length) : number
-    const match = /^PK-(\d+)$/.exec(localNumber)
+    const match = /^PK-(\d+)$/.exec(pack.packNo.trim())
     return match ? Math.max(highest, Number(match[1])) : highest
   }, 0)
-  return `${prefix}PK-${String(serial + 1).padStart(4, '0')}`
+  return `PK-${String(serial + 1).padStart(4, '0')}`
 }
 
 export const remainingPieces = (board: WorkOrderBoard, packs: PackDraft[]): number =>
@@ -60,7 +56,7 @@ export function validatePlan(
   const boardById = new Map(boards.map((board) => [board.id, board]))
   for (const pack of packs) {
     if (!pack.packNo.trim()) return '请填写包号'
-    if (pack.packNo.trim().length > 60) return `包号 ${pack.packNo} 超过 60 字，请缩短生产工单号`
+    if (pack.packNo.trim().length > 60) return `包号 ${pack.packNo} 超过 60 字，请缩短包号`
     if (numbers.has(pack.packNo.trim())) return `包号 ${pack.packNo} 重复`
     numbers.add(pack.packNo.trim())
     if (!pack.items.length) return `包号 ${pack.packNo} 没有板材，请选定该空包并排入板材后保存`
@@ -110,7 +106,6 @@ export function suggestPacks(
   boards: WorkOrderBoard[],
   existing: PackDraft[],
   rule: PackRule,
-  workOrderNo: string,
   preserveManual: boolean,
   selectedBoardIds?: ReadonlySet<string>
 ): PackDraft[] {
@@ -181,7 +176,7 @@ export function suggestPacks(
       if (!target) {
         if (rule.remainderPolicy === 'manual' && remaining < rule.maxPieces) break
         target = {
-          packNo: nextPackNo(workOrderNo, packs),
+          packNo: nextPackNo(packs),
           manuallyAdjusted: false,
           confirmed: false,
           remark: '',

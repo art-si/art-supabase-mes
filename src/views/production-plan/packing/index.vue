@@ -1026,7 +1026,6 @@
       boards.value,
       packs.value,
       rule,
-      order.workOrderNo,
       true,
       new Set(rows.map((row) => row.id))
     )
@@ -1157,7 +1156,7 @@
       source.items = source.items.filter((item) => !chosen.includes(item))
     }
     const created: PackDraft = {
-      packNo: nextPackNo(order.workOrderNo, packs.value),
+      packNo: nextPackNo(packs.value),
       manuallyAdjusted: true,
       confirmed: false,
       remark: '',
@@ -1198,13 +1197,7 @@
         preserveManual = false
       }
     }
-    const proposed = suggestPacks(
-      boards.value,
-      cloneDeep(packs.value),
-      rule,
-      order.workOrderNo,
-      preserveManual
-    )
+    const proposed = suggestPacks(boards.value, cloneDeep(packs.value), rule, preserveManual)
     clearBoardFilter()
     packs.value = proposed
     selectedPack.value = null

@@ -63,7 +63,7 @@ test('自动排包按块数和堆叠高度拆包，并保留人工调整的数�
       items: [{ boardId: 'a', pieces: 3, remark: '' }]
     }
   ]
-  const packs = suggestPacks(boards, manual, rule, 'MO-001', true)
+  const packs = suggestPacks(boards, manual, rule, true)
   assert.equal(packs[0].packNo, 'HAND-1')
   assert.equal(packs[0].items[0].pieces, 3)
   assert.equal(
@@ -97,12 +97,11 @@ test('同编号规则拒绝不同编号混包，超排会被拒绝', () => {
 test('尾数独立小包不会并入下一行板材，合并策略可以共包', () => {
   const boards = [board('a', 2), board('b', 2)]
   const limits = { ...rule, maxStackHeight: 1000 }
-  const separate = suggestPacks(boards, [], limits, 'MO-001', true)
+  const separate = suggestPacks(boards, [], limits, true)
   const merged = suggestPacks(
     boards,
     [],
     { ...limits, sameNumber: false, remainderPolicy: 'merge' },
-    'MO-001',
     true
   )
   assert.equal(separate.length, 2)
@@ -121,14 +120,7 @@ test('手动排包仅处理所选明细，按规则块数与堆叠上限拆分',
       items: [{ boardId: 'b', pieces: 2, remark: '' }]
     }
   ]
-  const packs = suggestPacks(
-    boards,
-    existing,
-    { ...rule, maxPieces: 5 },
-    'MO-001',
-    true,
-    new Set(['a'])
-  )
+  const packs = suggestPacks(boards, existing, { ...rule, maxPieces: 5 }, true, new Set(['a']))
   assert.equal(remainingPieces(boards[0], packs), 0)
   assert.equal(remainingPieces(boards[1], packs), 2)
   assert.ok(packs.every((pack) => packTotals(pack, boards).pieces <= 5))
@@ -153,34 +145,40 @@ test('同编号关闭时允许同区域不同编号，板厚条件仍生效', ()
   assert.match(validatePlan(boards, mixed, { ...flexible, boardThicknessMm: 50 }) || '', /板厚/)
 })
 
-test('不同生产工单从 0001 排包，完整包号仍然唯一', () => {
+test('不同生产工单均从 PK-0001 排包，包号只在工单内唯一', () => {
   const boards = [board('a', 10)]
-  const first = suggestPacks(boards, [], rule, 'MO-001', true)
-  const second = suggestPacks(boards, [], rule, 'MO-002', true)
+  const first = suggestPacks(boards, [], rule, true)
+  const second = suggestPacks(
+    boards.map((row) => ({ ...row, workOrderId: 'other-order' })),
+    [],
+    rule,
+    true
+  )
   assert.deepEqual(
     first.map((pack) => pack.packNo),
-    ['MO-001-PK-0001', 'MO-001-PK-0002']
+    ['PK-0001', 'PK-0002']
   )
   assert.deepEqual(
     second.map((pack) => pack.packNo),
-    ['MO-002-PK-0001', 'MO-002-PK-0002']
+    ['PK-0001', 'PK-0002']
   )
-  assert.equal(new Set([...first, ...second].map((pack) => pack.packNo)).size, 4)
+  assert.equal(new Set(first.map((pack) => pack.packNo)).size, first.length)
+  assert.equal(new Set(second.map((pack) => pack.packNo)).size, second.length)
   assert.equal(validatePlan(boards, first, rule), null)
 })
 
-test('续排和拆包共用工单编号，兼容历史短包号且不重用已有流水', () => {
-  const existing = [{ packNo: 'PK-0002' }, { packNo: 'MO-001-PK-0005' }]
-  assert.equal(nextPackNo('MO-001', existing), 'MO-001-PK-0006')
+test('续排和拆包在当前工单内续号，不重用已有流水', () => {
+  const existing = [{ packNo: 'PK-0002' }, { packNo: 'PK-0005' }]
+  assert.equal(nextPackNo(existing), 'PK-0006')
   assert.deepEqual(
     existing.map((pack) => pack.packNo),
-    ['PK-0002', 'MO-001-PK-0005']
+    ['PK-0002', 'PK-0005']
   )
-  assert.equal(nextPackNo(' MO-001 ', [{ packNo: 'MO-001-PK-9999' }]), 'MO-001-PK-10000')
-  assert.throws(() => nextPackNo(' ', []), /生产工单号为空/)
+  assert.equal(nextPackNo([{ packNo: 'PK-9999' }]), 'PK-10000')
+  assert.equal(nextPackNo([]), 'PK-0001')
 })
 
-test('保留人工包时续号，重新排包和所选明细排包也使用组合包号', () => {
+test('保留人工包时续号，重新排包和所选明细排包均使用短包号', () => {
   const boards = [board('a', 10)]
   const manual = [
     {
@@ -192,20 +190,20 @@ test('保留人工包时续号，重新排包和所选明细排包也使用组�
       items: [{ boardId: 'a', pieces: 3, remark: '' }]
     }
   ]
-  const preserved = suggestPacks(boards, manual, rule, 'MO-001', true)
+  const preserved = suggestPacks(boards, manual, rule, true)
   assert.equal(preserved[0].packNo, 'PK-0003')
   assert.equal(preserved[0].id, 'legacy-pack')
-  assert.equal(preserved[1].packNo, 'MO-001-PK-0004')
-  const reset = suggestPacks(boards, manual, rule, 'MO-001', false)
-  assert.equal(reset[0].packNo, 'MO-001-PK-0001')
-  const selected = suggestPacks(boards, manual, rule, 'MO-001', true, new Set(['a']))
-  assert.equal(selected[1].packNo, 'MO-001-PK-0004')
+  assert.equal(preserved[1].packNo, 'PK-0004')
+  const reset = suggestPacks(boards, manual, rule, false)
+  assert.equal(reset[0].packNo, 'PK-0001')
+  const selected = suggestPacks(boards, manual, rule, true, new Set(['a']))
+  assert.equal(selected[1].packNo, 'PK-0004')
   assert.equal(validatePlan(boards, selected, rule), null)
 })
 
-test('空包继续阻止保存并给出修复操作，组合包号仍需满足长度和唯一性校验', () => {
+test('空包继续阻止保存并给出修复操作，包号仍需满足长度和工单内唯一性校验', () => {
   const boards = [board('a', 2)]
-  const packs = suggestPacks(boards, [], rule, 'MO-001', true)
+  const packs = suggestPacks(boards, [], rule, true)
   assert.match(validatePlan(boards, [{ ...packs[0], items: [] }], rule) || '', /选定该空包/)
   assert.match(validatePlan(boards, [packs[0], packs[0]], rule) || '', /重复/)
   assert.match(
@@ -218,7 +216,7 @@ test('部分入库后重新计算始终保留已入库包，剩余板材继续�
   const boards = [board('a', 10), board('b', 4)]
   const received: PackDraft = {
     id: 'received',
-    packNo: 'MO-001-PK-0004',
+    packNo: 'PK-0004',
     manuallyAdjusted: false,
     confirmed: false,
     remark: '',
@@ -227,11 +225,11 @@ test('部分入库后重新计算始终保留已入库包，剩余板材继续�
     inboundAreaSqm: 24,
     items: [{ boardId: 'a', pieces: 3, remark: '' }]
   }
-  const packs = suggestPacks(boards, [received], rule, 'MO-001', false)
+  const packs = suggestPacks(boards, [received], rule, false)
   assert.equal(packs[0].id, received.id)
   assert.equal(packs[0].items[0].pieces, 3)
   assert.equal(packs[0].inboundAt, received.inboundAt)
-  assert.equal(packs[1].packNo, 'MO-001-PK-0005')
+  assert.equal(packs[1].packNo, 'PK-0005')
   assert.equal(remainingPieces(boards[0], packs), 0)
   assert.equal(remainingPieces(boards[1], packs), 0)
   assert.equal(received.items[0].pieces, 3)
@@ -241,7 +239,7 @@ test('已入库包保留历史规则，新规则只校验未入库包，工单�
   const boards = [board('a', 5)]
   const received: PackDraft = {
     id: 'received',
-    packNo: 'MO-001-PK-0001',
+    packNo: 'PK-0001',
     manuallyAdjusted: false,
     confirmed: false,
     remark: '',
@@ -249,7 +247,7 @@ test('已入库包保留历史规则，新规则只校验未入库包，工单�
     items: [{ boardId: 'a', pieces: 3, remark: '' }]
   }
   const pending: PackDraft = {
-    packNo: 'MO-001-PK-0002',
+    packNo: 'PK-0002',
     manuallyAdjusted: true,
     confirmed: false,
     remark: '',
