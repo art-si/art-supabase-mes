@@ -1,1 +1,0 @@
-import{$ as e,Ot as t,ct as n}from"./dist-1QnCqFHv.js";import{t as r}from"./defect-management-CUKqMR2b.js";var i=n({name:`MesReportDefects`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{"initial-tab":`details`}))}});export{i as default};

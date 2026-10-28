@@ -20,67 +20,80 @@
 
       <div
         class="manufacturing-page__workspace business-workspace-content"
-        :class="{ 'is-task-workspace': !isWorkOrder }"
+        :class="{ 'is-task-workspace': !isWorkOrder && !context.error }"
       >
-        <ArtWorkspaceSplitter
-          primary-size="300px"
-          primary-min="256px"
-          primary-max="400px"
-          :breakpoint="960"
-          stacked-primary-size="380px"
-          :primary-collapsed="isWorkOrder || productionScope.collapsed"
+        <ArtAsyncState
+          :loading="context.loading"
+          :error="context.error"
+          error-title="制造基础资料加载失败"
+          full-height
+          size="compact"
+          @retry="loadContext"
         >
-          <template #primary>
-            <ProductionWorkCenterNavigator
-              v-if="!isWorkOrder"
-              :workshops="workshopOptions"
-              :work-centers="workCentersForWorkshop"
-              :selected-workshop-id="productionScope.selectedWorkshopId"
-              :selected-work-center-id="productionScope.selectedWorkCenterId"
-              :loading="productionScope.loading"
-              :error="productionScope.error"
-              collapsible
-              allow-all-workshops
-              show-all-work-centers
-              select-id="operation-task-workshop-select"
-              @refresh="loadProductionScope"
-              @collapse="productionScope.collapsed = true"
-              @select-workshop="selectWorkshop"
-              @select-work-center="selectWorkCenter"
-            />
-          </template>
-
-          <div class="manufacturing-page__main">
-            <div
-              v-if="!isWorkOrder && productionScope.collapsed"
-              class="manufacturing-page__scope-expand art-card-xs"
-            >
-              <ArtIconButton
-                icon="ri:side-bar-line"
-                label="展开生产范围"
-                @click="productionScope.collapsed = false"
+          <ArtWorkspaceSplitter
+            primary-size="300px"
+            primary-min="256px"
+            primary-max="400px"
+            :breakpoint="960"
+            :stacked-primary-size="
+              productionScope.loading || productionScope.error || !workshopOptions.length
+                ? 'auto'
+                : '380px'
+            "
+            :primary-collapsed="isWorkOrder || productionScope.collapsed"
+          >
+            <template #primary>
+              <ProductionWorkCenterNavigator
+                v-if="!isWorkOrder"
+                :workshops="workshopOptions"
+                :work-centers="workCentersForWorkshop"
+                :selected-workshop-id="productionScope.selectedWorkshopId"
+                :selected-work-center-id="productionScope.selectedWorkCenterId"
+                :loading="productionScope.loading"
+                :error="productionScope.error"
+                collapsible
+                allow-all-workshops
+                show-all-work-centers
+                select-id="operation-task-workshop-select"
+                @refresh="loadProductionScope"
+                @collapse="productionScope.collapsed = true"
+                @select-workshop="selectWorkshop"
+                @select-work-center="selectWorkCenter"
               />
-              <span>展开车间 / 产线</span>
-            </div>
+            </template>
 
-            <ArtTableQuery
-              :key="routeName"
-              ref="tableRef"
-              v-model="table.search"
-              :api-fn="fetchRows"
-              :immediate="false"
-              :search-items="searchItems"
-              :columns-factory="columnsFactory"
-              :header-actions="headerActions"
-              :selection-actions="selectionActions"
-              header-actions-placement="workspace"
-              :search-bar-props="{ span: 6, labelWidth: 82, defaultExpanded: !isWorkOrder }"
-              :table-props="queryTableProps"
-              :focus-scope-selector="isWorkOrder ? undefined : '.manufacturing-page__workspace'"
-              focusable
-            />
-          </div>
-        </ArtWorkspaceSplitter>
+            <div class="manufacturing-page__main">
+              <div
+                v-if="!isWorkOrder && productionScope.collapsed"
+                class="manufacturing-page__scope-expand art-card-xs"
+              >
+                <ArtIconButton
+                  icon="ri:side-bar-line"
+                  label="展开生产范围"
+                  @click="productionScope.collapsed = false"
+                />
+                <span>展开车间 / 产线</span>
+              </div>
+
+              <ArtTableQuery
+                :key="routeName"
+                ref="tableRef"
+                v-model="table.search"
+                :api-fn="fetchRows"
+                :immediate="false"
+                :search-items="searchItems"
+                :columns-factory="columnsFactory"
+                :header-actions="headerActions"
+                :selection-actions="selectionActions"
+                header-actions-placement="workspace"
+                :search-bar-props="{ span: 6, labelWidth: 82, defaultExpanded: !isWorkOrder }"
+                :table-props="queryTableProps"
+                :focus-scope-selector="isWorkOrder ? undefined : '.manufacturing-page__workspace'"
+                focusable
+              />
+            </div>
+          </ArtWorkspaceSplitter>
+        </ArtAsyncState>
       </div>
 
       <component
@@ -147,13 +160,15 @@
   import { createDateTimeFormatter } from '@/utils/ui/format'
 
   import dayjs from 'dayjs'
-  import { ElMessage, ElTag } from 'element-plus'
+  import { ElMessage } from 'element-plus'
   import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
   import { useLazyComponent } from '@/hooks/core/useLazyComponent'
   import { useTenantScopeAccessPolicy } from '@/hooks/core/useTenantScopeAccessPolicy'
   import { useTenantScopeStore } from '@/store/modules/tenant-scope'
   import { useTenantScopeFormPolicy } from '@/hooks/core/useTenantScopeFormPolicy'
   import { useUserStore } from '@/store/modules/user'
+  import ArtDictDisplay from '@/components/core/base/art-dict-display/index.vue'
+  import ArtAsyncState from '@/components/core/feedback/art-async-state/index.vue'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
   import ArtButtonMore from '@/components/core/forms/art-button-more/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
@@ -171,11 +186,13 @@
   import type { SearchFormItem } from '@/components/core/forms/art-search-bar/index.vue'
   import type {
     ArtTableQueryExpose,
+    ArtTableQueryExportApiParams,
     ArtTableQueryHeaderAction,
     ArtTableQueryHeaderActionContext
   } from '@/components/core/tables/art-table-query/index.vue'
   import type { ColumnOption } from '@/types'
   import TreeUtils from '@/utils/tree'
+  import { loadTableExportRows } from '@/utils/table/table-utils'
   import {
     formatProductionDepartmentPath,
     getDepartmentsWithWorkCenters
@@ -368,7 +385,33 @@
     collapsed: false
   })
   const productionTree = new TreeUtils({ parentKey: 'parentId', deepClone: false })
-  const overview = reactive({ total: 0, attention: 0, ready: 0 })
+  const context = reactive<{ loading: boolean; ready: boolean; error: Error | null }>({
+    loading: true,
+    ready: false,
+    error: null
+  })
+  const metricsReady = computed(
+    () =>
+      context.ready &&
+      Boolean(tableRef.value?.dataState) &&
+      !tableRef.value?.dataState.loading.value &&
+      !tableRef.value?.dataState.error.value
+  )
+  const overview = computed(() => {
+    const state = tableRef.value?.dataState
+    const rows = state?.rows.value ?? []
+    const workOrders = isWorkOrder.value ? (rows as readonly MesWorkOrder[]) : []
+    const tasks = isWorkOrder.value ? [] : (rows as readonly MesOperationTask[])
+    return {
+      total: state?.pagination.value?.total ?? 0,
+      attention: isWorkOrder.value
+        ? workOrders.filter((row) => row.status === 'pending' || row.status === 'abnormal').length
+        : tasks.filter((row) => row.schedulingStatus === 'pending').length,
+      ready: isWorkOrder.value
+        ? workOrders.filter((row) => row.status === 'confirmed').length
+        : tasks.filter((row) => ['scheduled', 'no_schedule'].includes(row.schedulingStatus)).length
+    }
+  })
   const workspaceTags = computed<BusinessWorkspaceTag[]>(() =>
     isWorkOrder.value
       ? [
@@ -385,20 +428,20 @@
   const metrics = computed<BusinessWorkspaceMetric[]>(() => [
     {
       label: '当前范围',
-      value: overview.total,
+      value: metricsReady.value ? overview.value.total : '—',
       description: '符合当前筛选的记录',
       icon: icon.value
     },
     {
-      label: isWorkOrder.value ? '待处理' : '待排产',
-      value: overview.attention,
-      description: isWorkOrder.value ? '待下达与异常工单' : '尚未分配工作中心',
+      label: isWorkOrder.value ? '本页待处理' : '本页待排产',
+      value: metricsReady.value ? overview.value.attention : '—',
+      description: isWorkOrder.value ? '待下达与异常工单' : '等待安排生产资源',
       icon: 'ri:alarm-warning-line',
-      tone: overview.attention ? 'warning' : 'success'
+      tone: metricsReady.value ? (overview.value.attention ? 'warning' : 'success') : 'info'
     },
     {
-      label: isWorkOrder.value ? '已下达' : '已排产',
-      value: overview.ready,
+      label: isWorkOrder.value ? '本页已下达' : '本页已排产',
+      value: metricsReady.value ? overview.value.ready : '—',
       description: '可进入后续生产执行',
       icon: 'ri:checkbox-circle-line',
       tone: 'success'
@@ -415,23 +458,6 @@
         ]
       : (getDictMap.value.mesOperationTaskScheduleStatus ?? [])
   )
-  const statusMeta: Record<
-    string,
-    { label: string; type: 'info' | 'primary' | 'success' | 'warning' | 'danger' }
-  > = {
-    pending: { label: '待下达', type: 'info' },
-    abnormal: { label: '异常', type: 'danger' },
-    confirmed: { label: '已下达', type: 'success' },
-    closed: { label: '已结案', type: 'info' },
-    unscheduled: { label: '未排程', type: 'warning' },
-    scheduled: { label: '已排程', type: 'primary' },
-    processing: { label: '加工中', type: 'success' },
-    no_schedule: { label: '无需排产', type: 'info' },
-    planned: { label: '计划', type: 'info' },
-    released: { label: '下达', type: 'primary' },
-    started: { label: '开工', type: 'warning' },
-    completed: { label: '完工', type: 'success' }
-  }
   const table = reactive({
     search: {
       keyword: '',
@@ -649,12 +675,14 @@
           {
             type: 'add',
             label: '新增工单',
+            disabled: !context.ready,
             permission: 'MesWorkOrder:Add',
             onClick: () => openWorkOrder()
           },
           {
             key: 'get',
             label: '获取工单',
+            disabled: !context.ready,
             icon: 'ri:download-cloud-2-line',
             permission: 'MesWorkOrder:Get',
             onClick: handleGetWorkOrders
@@ -662,6 +690,7 @@
           {
             type: 'import',
             label: '导入',
+            disabled: !context.ready,
             permission: 'MesWorkOrder:Import',
             importColumns: [
               { key: 'materialId', title: '产品物料ID', required: true },
@@ -704,6 +733,7 @@
           {
             type: 'export',
             label: '导出',
+            disabled: !context.ready,
             permission: 'MesWorkOrder:Export',
             exportColumns: [
               { key: 'workOrderNo', title: '工单编号' },
@@ -719,7 +749,9 @@
           {
             type: 'export',
             label: '导出',
+            disabled: !context.ready,
             permission: 'MesOperationTask:Export',
+            exportApi: exportTasks,
             exportColumns: taskExportColumns
           }
         ]
@@ -873,20 +905,6 @@
       }
     ]
   })
-  const statusTag = (status: string, explicitDictCode?: string) => {
-    if (isWorkOrder.value && isWorkOrderDisplayStatus(status)) {
-      return <WorkOrderStatusTag status={status} />
-    }
-    const meta = statusMeta[status] || { label: status, type: 'info' as const }
-    const dictCode =
-      explicitDictCode || (isWorkOrder.value ? 'mesWorkOrderStatus' : 'mesOperationTaskStatus')
-    const label = userStore.getDictItemByValue(dictCode, status)?.label || meta.label
-    return (
-      <ElTag type={meta.type} effect="light">
-        {label}
-      </ElTag>
-    )
-  }
   const workOrderColumns = (): ColumnOption<MesWorkOrder>[] => [
     { type: 'selection', width: 48 },
     { type: 'globalIndex', label: '序号', width: 70 },
@@ -903,7 +921,12 @@
       label: '工单状态',
       width: 100,
       align: 'center',
-      formatter: (row) => statusTag(row.orderStatus)
+      formatter: (row) =>
+        isWorkOrderDisplayStatus(row.orderStatus) ? (
+          <WorkOrderStatusTag status={row.orderStatus} />
+        ) : (
+          <ArtDictDisplay dictCode="mesWorkOrderStatus" value={row.orderStatus} display="tag" />
+        )
     },
     {
       prop: 'workOrderTypeNameSnapshot',
@@ -1076,7 +1099,7 @@
       label: '排产状态',
       width: 104,
       align: 'center',
-      formatter: (row) => statusTag(row.schedulingStatus, 'mesOperationTaskScheduleStatus')
+      dict: { code: 'mesOperationTaskScheduleStatus', display: 'tag' }
     },
     {
       prop: 'workOrderType',
@@ -1132,7 +1155,7 @@
       prop: 'sequenceType',
       label: '序列类型',
       width: 108,
-      formatter: (row) => statusTag(row.sequenceType, 'mdmProcessRouteSequenceType')
+      dict: { code: 'mdmProcessRouteSequenceType', display: 'tag' }
     },
     {
       prop: 'operationCode',
@@ -1155,7 +1178,7 @@
       label: '工序状态',
       width: 104,
       align: 'center',
-      formatter: (row) => statusTag(row.operationStatus, 'mesOperationStatus')
+      dict: { code: 'mesOperationStatus', display: 'tag' }
     },
     {
       prop: 'urgency',
@@ -1230,7 +1253,7 @@
       prop: 'source',
       label: '工单来源',
       width: 108,
-      formatter: (row) => statusTag(row.workOrder?.source || '', 'mesWorkOrderSource')
+      dict: { code: 'mesWorkOrderSource', display: 'tag', value: (row) => row.workOrder?.source }
     },
     {
       prop: 'workOrderRemark',
@@ -1487,6 +1510,34 @@
       }
     ]
   }
+  async function exportTasks({
+    selectedRows,
+    searchParams,
+    maxRows
+  }: ArtTableQueryExportApiParams) {
+    if (selectedRows.length) return selectedRows
+    const tenantId = effectiveTenantId.value
+    const workCenterId = productionScope.selectedWorkCenterId || undefined
+    const departmentIds =
+      !workCenterId && selectedWorkshop.value ? [...selectedDepartmentIds.value] : undefined
+    return loadTableExportRows<MesOperationTask>(
+      ({ current, size, ...filters }) =>
+        fetchOperationTasks(
+          {
+            ...filters,
+            current: Number(current),
+            size: Number(size),
+            tenantId,
+            workCenterId,
+            departmentIds
+          },
+          { showErrorMessage: false }
+        ),
+      searchParams,
+      maxRows
+    )
+  }
+
   async function fetchRows(
     params: typeof table.search & { current: number; size: number },
     options?: { signal?: AbortSignal }
@@ -1494,7 +1545,7 @@
     const result = isWorkOrder.value
       ? await fetchWorkOrders(
           { ...params, tenantId: effectiveTenantId.value, recordId: targetWorkOrderId.value },
-          options
+          { ...options, showErrorMessage: false }
         )
       : await fetchOperationTasks(
           {
@@ -1506,19 +1557,8 @@
                 ? selectedDepartmentIds.value
                 : undefined
           },
-          options
+          { ...options, showErrorMessage: false }
         )
-    overview.total = result.total
-    overview.attention = result.data.filter((row) =>
-      isWorkOrder.value
-        ? ['pending', 'abnormal'].includes((row as MesWorkOrder).status)
-        : (row as MesOperationTask).schedulingStatus === 'pending'
-    ).length
-    overview.ready = result.data.filter((row) =>
-      isWorkOrder.value
-        ? (row as MesWorkOrder).status === 'confirmed'
-        : ['scheduled', 'no_schedule'].includes((row as MesOperationTask).schedulingStatus)
-    ).length
     return { records: result.data, total: result.total }
   }
   function handleSortChange({
@@ -1887,7 +1927,10 @@
   let contextRequestId = 0
   async function loadContext() {
     const request = ++contextRequestId
-    Object.assign(overview, { total: 0, attention: 0, ready: 0 })
+    tableRef.value?.cancelRequest()
+    context.loading = true
+    context.ready = false
+    context.error = null
     Object.assign(table.search, {
       keyword: '',
       status: [],
@@ -1903,33 +1946,47 @@
       selectedWorkshopId: '',
       selectedWorkCenterId: ''
     })
-    await nextTick()
-    await tenantScopeStore.loadTenantOptions()
-    await Promise.all(
-      [
-        'mesWorkOrderSource',
-        'mesWorkOrderUrgency',
-        'mesWorkOrderStatus',
-        'mesOperationTaskStatus',
-        'mesOperationTaskScheduleStatus',
-        'mesOperationStatus',
-        'mdmProcessRouteSequenceType'
-      ].map((code) => userStore.ensureDictLoaded(code))
-    )
-    if (request !== contextRequestId) return
-    const [refs] = await Promise.all([
-      fetchMesReferences(effectiveTenantId.value || undefined),
-      isWorkOrder.value ? Promise.resolve() : loadProductionScope(false)
-    ])
-    if (request !== contextRequestId) return
-    referenceState.employees = refs.employees
-    referenceState.workCenters = refs.workCenters
-    await nextTick()
-    if (request !== contextRequestId) return
-    await tableRef.value?.refreshCreate()
+    try {
+      await nextTick()
+      await tenantScopeStore.loadTenantOptions()
+      if (request !== contextRequestId) return
+      await Promise.all(
+        [
+          'mesWorkOrderSource',
+          'mesWorkOrderUrgency',
+          'mesWorkOrderStatus',
+          'mesOperationTaskScheduleStatus',
+          'mesOperationStatus',
+          'mdmProcessRouteSequenceType'
+        ].map((code) => userStore.ensureDictLoaded(code))
+      )
+      if (request !== contextRequestId) return
+      const [refs] = await Promise.all([
+        fetchMesReferences(effectiveTenantId.value || undefined),
+        isWorkOrder.value ? Promise.resolve() : loadProductionScope(false)
+      ])
+      if (request !== contextRequestId) return
+      referenceState.employees = refs.employees
+      referenceState.workCenters = refs.workCenters
+      await nextTick()
+      if (request !== contextRequestId) return
+      context.loading = false
+      await tableRef.value?.refreshCreate()
+      if (request === contextRequestId) context.ready = true
+    } catch (error) {
+      if (request === contextRequestId)
+        context.error = new Error('基础资料暂时不可用，请重新加载后继续操作', { cause: error })
+    } finally {
+      if (request === contextRequestId) context.loading = false
+    }
   }
   watch([() => route.path, effectiveTenantId, targetWorkOrderId], () => void loadContext(), {
     immediate: true
+  })
+  onBeforeUnmount(() => {
+    contextRequestId += 1
+    productionScopeRequestId += 1
+    tableRef.value?.cancelRequest()
   })
 </script>
 

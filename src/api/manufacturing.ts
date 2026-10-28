@@ -1,7 +1,7 @@
 import { useSupabase } from '@/hooks/core/useSupabase'
 import { groupBy, uniq } from 'lodash-es'
 import { mapWithConcurrency } from '@/utils/async'
-import type { ApiRequestOptions } from '@/types/api/request'
+import type { ApiFeedbackOptions, ApiRequestOptions } from '@/types/api/request'
 import { normalizeNullableText } from '@/utils/form/normalize'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
 import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
@@ -64,7 +64,10 @@ export async function fetchWorkOrderBomIssueTotals(
   return data ?? []
 }
 
-export async function fetchWorkOrders(params: MesListQuery, options?: { signal?: AbortSignal }) {
+export async function fetchWorkOrders(
+  params: MesListQuery,
+  options?: ApiRequestOptions & ApiFeedbackOptions
+) {
   const pageRange = buildSupabasePageRange(params)
   let query = supabase
     .from('mes_work_order')
@@ -115,7 +118,7 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
   }
   const { data, total } = await responseHandle<MesWorkOrder[]>(
     () => (options?.signal ? query.abortSignal(options.signal) : query),
-    readOptions
+    { ...readOptions, showErrorMessage: options?.showErrorMessage ?? true }
   )
   return {
     data: (await hydrateMesWorkOrderMaterials(data ?? [], options)).map((row) => ({
@@ -129,7 +132,10 @@ export async function fetchWorkOrders(params: MesListQuery, options?: { signal?:
 /** Keep the material description shown by work orders and packing documents identical. */
 export async function hydrateMesWorkOrderMaterials<
   T extends Pick<MesWorkOrder, 'tenantId' | 'materialId' | 'materialNameSnapshot'>
->(rows: T[], options?: ApiRequestOptions): Promise<Array<T & { materialDescription: string }>> {
+>(
+  rows: T[],
+  options?: ApiRequestOptions & ApiFeedbackOptions
+): Promise<Array<T & { materialDescription: string }>> {
   const detailsByTenant = await mapWithConcurrency(
     Object.entries(groupBy(rows, 'tenantId')),
     3,
@@ -451,7 +457,7 @@ export async function annotateWorkOrder(
 
 export async function fetchOperationTasks(
   params: MesListQuery,
-  options?: { signal?: AbortSignal }
+  options?: ApiRequestOptions & ApiFeedbackOptions
 ) {
   const pageRange = buildSupabasePageRange(params)
   let query = supabase
@@ -502,7 +508,7 @@ export async function fetchOperationTasks(
   query = query.order('id')
   const { data, total } = await responseHandle<MesOperationTask[]>(
     () => (options?.signal ? query.abortSignal(options.signal) : query),
-    readOptions
+    { ...readOptions, showErrorMessage: options?.showErrorMessage ?? true }
   )
   return { data: data ?? [], total: total ?? 0 }
 }
@@ -799,7 +805,7 @@ export async function fetchMesReferences(tenantId?: string): Promise<MesReferenc
             )
             .eq('is_default', true)
             .eq('enabled', true),
-        readOptions
+        { ...readOptions, showErrorMessage: false }
       )
     : { data: [] }
   const defaultIds = new Set((defaultDocumentTypes ?? []).map((item) => item.id))
@@ -920,7 +926,7 @@ interface MesMaterialDetails {
 async function fetchMesMaterialDetails(
   tenantId: string,
   ids: string[],
-  options?: ApiRequestOptions
+  options?: ApiRequestOptions & ApiFeedbackOptions
 ) {
   const details = new Map<string, MesMaterialDetails>()
   if (!ids.length) return details
@@ -933,14 +939,17 @@ async function fetchMesMaterialDetails(
       attributeGroupId: string | null
       attributeValues: Record<string, string | number | null> | null
     }>
-  >(() => {
-    const query = supabase
-      .from('mdm_material')
-      .select('id,description,width,thickness,attribute_group_id,attribute_values')
-      .eq('tenant_id', tenantId)
-      .in('id', ids)
-    return options?.signal ? query.abortSignal(options.signal) : query
-  }, readOptions)
+  >(
+    () => {
+      const query = supabase
+        .from('mdm_material')
+        .select('id,description,width,thickness,attribute_group_id,attribute_values')
+        .eq('tenant_id', tenantId)
+        .in('id', ids)
+      return options?.signal ? query.abortSignal(options.signal) : query
+    },
+    { ...readOptions, showErrorMessage: options?.showErrorMessage ?? true }
+  )
   const groupIds = uniq((data ?? []).map((item) => item.attributeGroupId).filter(Boolean))
   const { data: attributes } = groupIds.length
     ? await responseHandle<Array<{ groupId: string; attributeKey: string; attributeName: string }>>(
@@ -953,7 +962,7 @@ async function fetchMesMaterialDetails(
             .in('attribute_name', ['宽度', '厚度'])
           return options?.signal ? query.abortSignal(options.signal) : query
         },
-        readOptions
+        { ...readOptions, showErrorMessage: options?.showErrorMessage ?? true }
       )
     : { data: [] }
   const dimensionKeys = new Map<string, { width?: string; thickness?: string }>()

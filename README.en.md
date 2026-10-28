@@ -34,6 +34,12 @@ MES is currently in the business implementation preparation stage. The independe
 | Shop-floor execution | Planned | Dispatch, start, material issue, reporting, pause, changeover, and completion |
 | Quality and traceability | Planned | In-process inspection, defect handling, lot/serial identity, and production genealogy |
 
+## Work Order and Operation Task Lists
+
+- The scope total covers all matching records. Pending and ready metrics explicitly describe the current page and follow the rows accepted by the table.
+- Metrics remain unknown during initialization, loading, or failure; a successfully loaded empty list shows zero. Reference failures have an inline retry, while list failures use the table retry.
+- Exports read the complete filtered result within the existing row limit. Operation task exports retain the work center or workshop scope selected when export starts; changing navigation cannot mix scopes, and the table continues to show the latest selection.
+
 ## Target Flow
 
 ```text

@@ -1,0 +1,1 @@
+import{$ as e,Ot as t,ct as n}from"./dist-1QnCqFHv.js";import{t as r}from"./report-ledger-ghuYUD8T.js";var i=n({name:`MesReportDetail`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{mode:`detail`}))}});export{i as default};
