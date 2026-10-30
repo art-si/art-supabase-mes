@@ -1,5 +1,6 @@
 import { createDateTimeFormatter } from '@/utils/ui/format'
 import dayjs from 'dayjs'
+import { groupBy } from 'lodash-es'
 import type {
   MesExecutionAttendance,
   MesExecutionEvent,
@@ -204,8 +205,16 @@ export function buildPersonEfficiencyRows(
   people: MesExecutionPerson[],
   range?: [string, string]
 ): PersonEfficiencyRow[] {
+  if (!reports.length) return []
   const rows = new Map<string, PersonEfficiencyRow>()
   const attendanceIntervals = new Map<string, Array<[number, number]>>()
+  const peopleById = groupBy(people, 'id')
+  const attendanceByTaskAndPerson = new Map(
+    Object.entries(groupBy(attendance, 'taskId')).map(
+      ([taskId, records]) =>
+        [taskId, new Map(Object.entries(groupBy(records, 'personnelId')))] as const
+    )
+  )
   for (const report of reports) {
     if (report.status !== 'approved' || !report.task) continue
     const date = reportWorkDate(report)
@@ -222,7 +231,7 @@ export function buildPersonEfficiencyRows(
         ? (report.goodQuantity * minutes) / outputQuantity / 60
         : null
     for (const personId of report.operatorPersonIds) {
-      const person = people.find((item) => item.id === personId)
+      const person = peopleById[personId]?.[0]
       const key = `${date}|${shift}|${personId}`
       let row = rows.get(key)
       if (!row) {
@@ -243,16 +252,18 @@ export function buildPersonEfficiencyRows(
         row.outputHours += standardHours / Math.max(1, report.operatorPersonIds.length)
       const start = dayjs(report.startedAt).valueOf()
       const end = dayjs(report.reportedAt).valueOf()
-      const intervals = attendance
-        .filter((item) => item.taskId === report.taskId && item.personnelId === personId)
+      const intervals = (attendanceByTaskAndPerson.get(report.taskId)?.get(personId) ?? [])
         .map((item): [number, number] => {
           const overlapStart = Math.max(start, dayjs(item.clockInAt).valueOf())
           const overlapEnd = Math.min(end, dayjs(item.clockOutAt || report.reportedAt).valueOf())
           return [overlapStart, overlapEnd]
         })
         .filter(([from, to]) => Number.isFinite(from) && Number.isFinite(to) && to > from)
-      if (intervals.length)
-        attendanceIntervals.set(key, [...(attendanceIntervals.get(key) || []), ...intervals])
+      if (intervals.length) {
+        const current = attendanceIntervals.get(key)
+        if (current) for (const interval of intervals) current.push(interval)
+        else attendanceIntervals.set(key, intervals)
+      }
     }
   }
   for (const [key, intervals] of attendanceIntervals) {

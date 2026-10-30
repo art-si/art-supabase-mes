@@ -16,7 +16,9 @@
         primary-size="270px"
         primary-min="240px"
         primary-max="360px"
+        stacked-secondary-min-size="720px"
         :breakpoint="900"
+        :narrow-mode="focusMode ? 'hide' : 'stack'"
       >
         <template #primary>
           <aside class="execution-analytics__scope"
@@ -35,7 +37,7 @@
           /></aside>
         </template>
         <div class="execution-analytics__main">
-          <div class="execution-analytics__metrics"
+          <div v-show="!focusMode" class="execution-analytics__metrics"
             ><article
               ><small>{{
                 mode === 'person'
@@ -46,7 +48,7 @@
                       ? '已分配机台'
                       : '工作中心'
               }}</small
-              ><strong>{{ metricCount }}</strong
+              ><strong>{{ metricsReady ? metricCount : '—' }}</strong
               ><span>当前筛选范围</span></article
             ><article
               ><small>{{
@@ -56,7 +58,7 @@
                     ? '排产任务'
                     : '计划数量'
               }}</small
-              ><strong>{{ metricPlanned }}</strong
+              ><strong>{{ metricsReady ? metricPlanned : '—' }}</strong
               ><span>{{
                 mode === 'person'
                   ? '工艺标准换算'
@@ -72,7 +74,7 @@
                     ? '达成任务'
                     : '审批良品'
               }}</small
-              ><strong>{{ metricAchieved }}</strong
+              ><strong>{{ metricsReady ? metricAchieved : '—' }}</strong
               ><span>{{
                 mode === 'person'
                   ? '按上机打卡计算'
@@ -82,7 +84,7 @@
               }}</span></article
             ><article
               ><small>{{ mode === 'person' ? '人工效率' : '达成率' }}</small
-              ><strong>{{ metricRate }}</strong
+              ><strong>{{ metricsReady ? metricRate : '—' }}</strong
               ><span>{{
                 mode === 'person'
                   ? '标准产出 / 在岗工时'
@@ -93,7 +95,6 @@
             ></div
           >
           <div class="execution-analytics__card">
-            <ElAlert v-if="error" :title="error" type="error" show-icon :closable="false" />
             <div class="execution-analytics__table"
               ><ArtTableQuery
                 ref="tableRef"
@@ -121,7 +122,17 @@
                 focusable
                 @search="applySearch"
                 @reset="resetFilters"
-                ><template #dimension-control>
+                ><template v-if="error" #content>
+                  <ElScrollbar class="min-h-0 flex-1" tabindex="0" aria-label="统计数据加载状态">
+                    <ArtAsyncState
+                      :error="error"
+                      error-title="统计结果暂不可用，请刷新重试"
+                      size="compact"
+                      @retry="loadData"
+                    />
+                  </ElScrollbar>
+                </template>
+                <template #dimension-control>
                   <ElSegmented
                     v-model="dimension"
                     :options="[
@@ -279,6 +290,7 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
+  import ArtAsyncState from '@/components/core/feedback/art-async-state/index.vue'
   import ArtTableQuery from '@/components/core/tables/art-table-query/index.vue'
   import type { ArtTableQueryExpose } from '@/components/core/tables/art-table-query/index.vue'
   import type { ArtTableQueryHeaderAction } from '@/components/core/tables/art-table-query/index.vue'
@@ -368,6 +380,7 @@
   const onlyIncomplete = ref(false)
   const keyword = ref('')
   const tableRef = ref<ArtTableQueryExpose>()
+  const focusMode = computed(() => tableRef.value?.workspaceController.focusMode.value ?? false)
   const headerActions = computed<ArtTableQueryHeaderAction[]>(() => [
     ...(props.mode === 'line' || props.mode === 'machine'
       ? [{ key: 'dimension', slot: 'dimension-control' }]
@@ -377,6 +390,7 @@
     {
       type: 'export',
       permission: `${config.value.permission}:Export`,
+      disabled: !metricsReady.value,
       onClick: () => exportRows()
     }
   ])
@@ -390,6 +404,7 @@
       key: 'dateRange',
       label: '统计日期',
       type: 'daterange',
+      span: 12,
       props: { valueFormat: 'YYYY-MM-DD', startPlaceholder: '开始日期', endPlaceholder: '结束日期' }
     },
     {
@@ -430,6 +445,8 @@
   const loading = ref(false)
   const resetting = ref(false)
   const error = ref('')
+  const accepted = ref(false)
+  const metricsReady = computed(() => accepted.value && !loading.value && !error.value)
   const effectiveRange = computed<[string, string]>(
     () => dateRange.value || ['1900-01-01', '9999-12-31']
   )
@@ -539,6 +556,7 @@
   let loadVersion = 0
   async function loadData() {
     const version = ++loadVersion
+    accepted.value = false
     loading.value = true
     tasks.value = []
     reports.value = []
@@ -595,6 +613,7 @@
       events.value = nextEvents
       attendance.value = nextAttendance
       people.value = nextPeople
+      accepted.value = true
     } catch {
       if (version === loadVersion) error.value = '统计数据加载失败，请重试'
     } finally {

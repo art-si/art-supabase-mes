@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type {
   MesExecutionAttendance,
+  MesExecutionPerson,
   MesExecutionTask,
   MesProductionReport
 } from '../../src/api/execution.types'
@@ -106,6 +107,82 @@ test('person efficiency merges overlapping attendance across reports', () => {
   assert.equal(rows.length, 1)
   assert.equal(rows[0].outputHours, 1)
   assert.equal(rows[0].onPostHours, 3)
+})
+
+test('person efficiency indexes task and person attendance without mixing records', () => {
+  const secondTask = { ...task, id: 'task-2', taskNo: 'MO-002' }
+  const reports = [
+    { ...report, operatorPersonIds: ['person-1', 'person-2'] },
+    {
+      ...report,
+      taskId: secondTask.id,
+      task: secondTask,
+      goodQuantity: 10,
+      startedAt: '2026-09-20T09:00:00+08:00',
+      reportedAt: '2026-09-20T10:00:00+08:00'
+    },
+    {
+      ...report,
+      task: { ...task, workOrder: null },
+      goodQuantity: 2,
+      startedAt: '2026-09-20T08:30:00+08:00',
+      reportedAt: '2026-09-20T09:30:00+08:00'
+    }
+  ] as MesProductionReport[]
+  const attendanceRow = (
+    taskId: string,
+    personnelId: string,
+    clockInAt: string,
+    clockOutAt: string | null
+  ): MesExecutionAttendance => ({
+    id: `${taskId}-${personnelId}-${clockInAt}`,
+    tenantId: 'tenant-1',
+    taskId,
+    workCenterId: 'center-1',
+    personnelId,
+    clockInAt,
+    clockOutAt
+  })
+  const attendance = [
+    attendanceRow(task.id, 'person-1', '2026-09-20T08:00:00+08:00', '2026-09-20T08:45:00+08:00'),
+    attendanceRow(task.id, 'person-1', '2026-09-20T08:30:00+08:00', '2026-09-20T09:15:00+08:00'),
+    attendanceRow(task.id, 'person-2', '2026-09-20T08:15:00+08:00', '2026-09-20T08:45:00+08:00'),
+    attendanceRow(secondTask.id, 'person-1', '2026-09-20T09:00:00+08:00', null),
+    attendanceRow(
+      secondTask.id,
+      'person-2',
+      '2026-09-20T08:00:00+08:00',
+      '2026-09-20T10:00:00+08:00'
+    )
+  ]
+  const firstPerson = {
+    id: 'person-1',
+    tenantId: 'tenant-1',
+    departmentId: 'department-1',
+    name: '首位员工',
+    employeeNo: 'P001',
+    enabled: true
+  }
+  const people: MesExecutionPerson[] = [
+    firstPerson,
+    { ...firstPerson, name: '重复编号的后位员工' },
+    { ...firstPerson, id: 'person-2', name: '次位员工', employeeNo: 'P002' }
+  ]
+  for (const input of [...reports, ...attendance, ...people]) Object.freeze(input)
+  for (const item of reports) Object.freeze(item.operatorPersonIds)
+  Object.freeze(reports)
+  Object.freeze(attendance)
+  Object.freeze(people)
+
+  assert.deepEqual(buildPersonEfficiencyRows([], attendance, people), [])
+  const rows = buildPersonEfficiencyRows(reports, attendance, people)
+  const byPerson = new Map(rows.map((row) => [row.personId, row]))
+  assert.equal(rows.length, 2)
+  assert.equal(byPerson.get('person-1')?.personName, '首位员工')
+  assert.equal(byPerson.get('person-1')?.outputHours, null)
+  assert.equal(byPerson.get('person-1')?.onPostHours, 2)
+  assert.equal(byPerson.get('person-2')?.outputHours, 0.4)
+  assert.equal(byPerson.get('person-2')?.onPostHours, 0.5)
 })
 
 test('overnight reports belong to the shift start date', () => {
