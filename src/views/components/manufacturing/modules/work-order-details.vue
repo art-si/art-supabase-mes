@@ -31,6 +31,7 @@
       </div>
     </template>
     <ArtTable
+      ref="tableRef"
       :data="rows"
       :columns="columns"
       :row-class-name="detailRowClass"
@@ -61,6 +62,7 @@
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import ArtSectionCard from '@/components/core/surfaces/art-section-card/index.vue'
   import ArtTable from '@/components/core/tables/art-table/index.vue'
+  import type { ArtTableExpose } from '@/components/core/tables/art-table/index.vue'
   import ArtExcelImport from '@/components/core/forms/art-excel-import/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { exportExcel } from '@/utils/file'
@@ -81,6 +83,8 @@
     defaultWidthMm?: number | null
   }>()
   const rows = defineModel<WorkOrderDetailDraft[]>('rows', { required: true })
+  const tableRef = ref<ArtTableExpose<WorkOrderDetailDraft>>()
+  const firstInvalidProp = ref<string>()
   const totalPieces = computed(() =>
     rows.value.reduce((total, row) => total + Number(row.pieces || 0), 0)
   )
@@ -126,7 +130,10 @@
     {
       prop: 'area',
       label: '区域',
-      width: 100,
+      width: 120,
+      headerTooltip: '必填，填写板材所在区域或轴线，如 1轴。',
+      required: !props.readonly,
+      requiredMessage: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：请填写区域`,
       sortable: true,
       formatter: (row) =>
         props.readonly ? (
@@ -138,7 +145,10 @@
     {
       prop: 'number',
       label: '编号',
-      width: 100,
+      width: 120,
+      headerTooltip: '必填，填写区域内的板材编号，如 1轴-1。',
+      required: !props.readonly,
+      requiredMessage: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：请填写编号`,
       sortable: true,
       formatter: (row) =>
         props.readonly ? (
@@ -150,7 +160,14 @@
     {
       prop: 'lengthMm',
       label: '长度 mm',
-      width: 145,
+      width: 170,
+      headerTooltip: '必填，长度必须大于 0 mm；支持 2 位小数。',
+      required: !props.readonly,
+      requiredMessage: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：请填写长度`,
+      rules: {
+        validator: ({ row }) => row.lengthMm > 0,
+        message: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：长度必须大于 0 mm`
+      },
       sortable: true,
       formatter: (row) =>
         props.readonly ? (
@@ -170,7 +187,14 @@
     {
       prop: 'pieces',
       label: '块数',
-      width: 90,
+      width: 110,
+      headerTooltip: '必填，块数必须为大于 0 的整数。',
+      required: !props.readonly,
+      requiredMessage: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：请填写块数`,
+      rules: {
+        validator: ({ row }) => Number.isInteger(row.pieces) && row.pieces > 0,
+        message: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：块数必须为大于 0 的整数`
+      },
       formatter: (row) =>
         props.readonly ? (
           row.pieces
@@ -203,7 +227,14 @@
     {
       prop: 'widthMm',
       label: '宽度 mm',
-      width: 120,
+      width: 170,
+      headerTooltip: '必填，宽度必须大于 0 mm；默认按所选物料带入。',
+      required: !props.readonly,
+      requiredMessage: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：请填写宽度`,
+      rules: {
+        validator: ({ row }) => row.widthMm > 0,
+        message: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：宽度必须大于 0 mm`
+      },
       sortable: true,
       formatter: (row) =>
         props.readonly ? (
@@ -224,6 +255,11 @@
       prop: 'areaSqm',
       label: '面积 ㎡',
       width: 165,
+      headerTooltip: '按长、宽与块数自动计算，可人工覆盖；面积不能小于 0 ㎡。',
+      rules: {
+        validator: ({ row }) => row.areaSqm >= 0,
+        message: ({ rowIndex }) => `生产单明细第 ${rowIndex + 1} 行：面积不能小于 0 ㎡`
+      },
       align: 'right',
       formatter: (row) =>
         props.readonly ? (
@@ -373,22 +409,17 @@
     }
   }
   const handleImportError = (error: Error) => notifyFriendlyError(error, '导入失败，请检查模板格式')
-  const validate = (): boolean => {
-    const invalid = rows.value.findIndex(
-      (row) =>
-        !row.area.trim() ||
-        !row.number.trim() ||
-        row.lengthMm <= 0 ||
-        row.widthMm <= 0 ||
-        !Number.isInteger(row.pieces) ||
-        row.pieces <= 0 ||
-        row.areaSqm < 0
-    )
-    if (invalid < 0) return true
-    ElMessage.warning(`生产单明细第 ${invalid + 1} 行需要填写区域、编号和有效尺寸`)
+  const validate = async (options?: { focus?: boolean }): Promise<boolean> => {
+    const result = await tableRef.value?.validate(options)
+    firstInvalidProp.value = result?.firstError?.prop
+    if (result?.valid) return true
+    if (result?.firstError) ElMessage.warning(result.firstError.message)
     return false
   }
-  defineExpose({ validate })
+  const focusFirstInvalidField = async (): Promise<void> => {
+    if (firstInvalidProp.value) await tableRef.value?.validateField(firstInvalidProp.value)
+  }
+  defineExpose({ validate, focusFirstInvalidField })
 </script>
 
 <style scoped>

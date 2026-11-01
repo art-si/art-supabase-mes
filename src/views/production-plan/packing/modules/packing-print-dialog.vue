@@ -15,14 +15,11 @@
         <ArtForm
           ref="formRef"
           v-if="dialog.input.mode === 'label'"
-          :model-value="form.data"
+          v-model="form.data"
           :items="form.items"
           :rules="form.rules"
           :span="24"
           label-position="top"
-          :show-reset="false"
-          :show-submit="false"
-          @update:model-value="replaceReactiveModel(form.data, $event)"
         >
           <template #paperWidthMm>
             <ElInputNumber
@@ -103,7 +100,6 @@
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { usePrintSheet } from '@/hooks/core/usePrintSheet'
   import { useAuth } from '@/hooks/core/useAuth'
   import ArtEmployeeSelect from '@/components/business/art-employee-select/index.vue'

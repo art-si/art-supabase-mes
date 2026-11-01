@@ -1,12 +1,12 @@
 <template>
-  <ArtDialog ref="dialogRef" size="xl">
+  <ArtDialog ref="dialogRef" size="xl" content-height="min(620px, 70vh)" @close="handleDialogClose">
     <div class="work-order-dialog">
       <ArtEntitySummary
-        class="work-order-dialog__context"
+        class="mb-4"
         icon="ri:file-list-3-line"
-        eyebrow="MANUFACTURING EXECUTION"
-        :title="heading"
-        description="下达前维护计划信息；保存后即集成物料、BOM 与工艺路线，形成可追溯的执行基线。"
+        compact
+        :title="selectedMaterial?.description || selectedMaterial?.materialName || '生产工单'"
+        description="分项维护工单信息，保存后集成 BOM 与工艺路线。"
       >
         <template #aside>
           <WorkOrderStatusTag v-if="detailRecord" :status="detailRecord.orderStatus" />
@@ -14,71 +14,88 @@
       </ArtEntitySummary>
       <WorkOrderDetail
         v-if="readonly && detailRecord"
+        v-model:active-tab="activeFormTab"
         :record="detailRecord"
         :references="references"
         :tenant-options="tenantOptions"
-      />
-      <ArtSectionCard
-        v-if="
-          readonly &&
-          detailRecord?.packingEnabledSnapshot &&
-          detailRecord.extensionSchemaSnapshot?.length
-        "
-        title="工单专用参数"
-        subtitle="按创建或最近编辑时的单据类型配置固化。"
-        class="mb-4"
       >
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div
-            v-for="field in detailRecord.extensionSchemaSnapshot"
-            :key="field.key"
-            class="grid gap-1"
-          >
-            <small class="text-gray-500">{{ field.label }}</small>
-            <strong>{{
-              extensionDisplayValue(field, detailRecord.extensionValues?.[field.key])
-            }}</strong>
+        <template
+          v-if="detailRecord.packingEnabledSnapshot && detailRecord.extensionSchemaSnapshot?.length"
+          #parameters
+        >
+          <p class="mb-4 text-xs text-g-700">按创建或最近编辑时的单据类型配置固化。</p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div
+              v-for="field in detailRecord.extensionSchemaSnapshot"
+              :key="field.key"
+              class="grid gap-1"
+            >
+              <small class="text-gray-500">{{ field.label }}</small>
+              <strong>{{
+                extensionDisplayValue(field, detailRecord.extensionValues?.[field.key])
+              }}</strong>
+            </div>
           </div>
-        </div>
-      </ArtSectionCard>
+        </template>
+        <template #details>
+          <WorkOrderDetails
+            v-model:rows="detailRows"
+            readonly
+            :action-permission="currentId ? 'MesWorkOrder:Edit' : 'MesWorkOrder:Add'"
+            :default-width-mm="selectedMaterial?.widthMm"
+          />
+        </template>
+      </WorkOrderDetail>
       <ArtForm
         v-if="!readonly"
         ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
+        class="px-0! pt-0!"
+        v-model:active-tab="activeFormTab"
+        v-model="model"
         :items="formItems"
         :rules="rules"
         :span="12"
         :gutter="24"
         label-position="top"
-        :show-reset="false"
-        :show-submit="false"
       >
         <template #materialId>
-          <ArtMaterialSelect
-            v-model="model.materialId"
-            :selected-data="selectedMaterial ? [selectedMaterial] : []"
-            :api-fn="fetchMaterialOptions"
-            :categories="materialCategories"
-            :label-key="materialDescriptionLabel"
-            reset-draft-on-open
-            subtitle="按物料分类筛选；选择后自动带入生产单位、计划员与生产提前期"
-            placeholder="请选择物料描述"
-            empty-description="请先维护物料编码后再创建生产工单。"
-            :disabled="locked"
-            @change="handleMaterialChange"
-          />
-          <ElAlert
-            v-if="selectedMaterial?.materialType === 'FERT' && !model.inboundWarehouseName"
-            class="mt-3"
-            title="暂无可用成品仓；请先启用成品仓并设置业务应用范围。"
-            type="warning"
-            show-icon
-            :closable="false"
-          />
+          <div class="flex w-full min-w-0 flex-col gap-3">
+            <ArtMaterialSelect
+              v-model="model.materialId"
+              :selected-data="selectedMaterial ? [selectedMaterial] : []"
+              :api-fn="fetchMaterialOptions"
+              :categories="materialCategories"
+              :label-key="materialDescriptionLabel"
+              reset-draft-on-open
+              subtitle="按物料分类筛选；选择后自动带入生产单位、计划员与生产提前期"
+              placeholder="请选择物料描述"
+              empty-description="请先维护物料编码后再创建生产工单。"
+              :disabled="locked"
+              @change="handleMaterialChange"
+            />
+            <ElAlert
+              v-if="selectedMaterial?.materialType === 'FERT' && !model.inboundWarehouseName"
+              title="暂无可用成品仓；请先启用成品仓并设置业务应用范围。"
+              type="warning"
+              show-icon
+              :closable="false"
+            />
+          </div>
         </template>
         <template #urgency>
           <WorkOrderUrgencySegmented v-model="model.urgency" :disabled="locked" />
+        </template>
+        <template #materialSummary>
+          <ArtDescriptions
+            :data="model"
+            :items="materialSummaryItems"
+            :columns="3"
+            :tablet-columns="3"
+            :border="false"
+            size="small"
+            empty-text="—"
+            class="rounded-lg bg-g-100 p-3"
+          />
         </template>
         <template #orderQuantity>
           <div class="flex min-w-0 items-center gap-2">
@@ -112,34 +129,22 @@
             placeholder="选择业务员"
             @update:model-value="model.salespersonId = $event ?? null"
         /></template>
+        <template #productionDetails>
+          <WorkOrderDetails
+            ref="detailsRef"
+            v-model:rows="detailRows"
+            :readonly="false"
+            :action-permission="currentId ? 'MesWorkOrder:Edit' : 'MesWorkOrder:Add'"
+            :default-width-mm="selectedMaterial?.widthMm"
+          />
+        </template>
       </ArtForm>
-      <ArtForm
-        v-if="!readonly && activeExtensionFields.length"
-        :model-value="extensionValues"
-        @update:model-value="replaceReactiveModel(extensionValues, $event)"
-        :items="extensionItems"
-        :span="8"
-        :gutter="20"
-        label-position="top"
-        :show-submit="false"
-        :show-reset="false"
-      />
-      <WorkOrderDetails
-        ref="detailsRef"
-        v-model:rows="detailRows"
-        :readonly="readonly"
-        :action-permission="currentId ? 'MesWorkOrder:Edit' : 'MesWorkOrder:Add'"
-        :default-width-mm="selectedMaterial?.widthMm"
-        class="mt-4"
-      />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
   import { toNameCodeOption } from '@/utils/form/option'
-
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { ElMessage } from 'element-plus'
@@ -157,7 +162,8 @@
   import ArtEmployeeSelect from '@/components/business/art-employee-select/index.vue'
   import type { EmployeeIntegrationItem } from '@/api/integration/employees'
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
-  import ArtSectionCard from '@/components/core/surfaces/art-section-card/index.vue'
+  import ArtDescriptions from '@/components/core/base/art-descriptions/index.vue'
+  import type { ArtDescriptionItem } from '@/components/core/base/art-descriptions/types'
   import type {
     WorkOrderExtensionField,
     WorkOrderExtensionValues
@@ -196,6 +202,7 @@
   }
 
   interface WorkOrderFormModel extends MesWorkOrderInput {
+    extensionValues: WorkOrderExtensionValues
     materialCode: string
     specificationModel: string
     drawingNo: string
@@ -213,6 +220,7 @@
   const emit = defineEmits<{ success: [mode: 'add' | 'edit'] }>()
   const dialogRef = ref<ArtDialogExpose<WorkOrderDialogOpenData>>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
+  const activeFormTab = ref('identity')
   const references = ref<MesReferences>({
     materials: [],
     customers: [],
@@ -238,7 +246,9 @@
   )
   const extensionValues = reactive<WorkOrderExtensionValues>({})
   let bomOptionsRequestId = 0
-  const model = reactive<WorkOrderFormModel>({
+  let dialogRequestId = 0
+  const model = ref<WorkOrderFormModel>({
+    extensionValues,
     tenantId: '',
     workOrderNo: '',
     workOrderTypeId: null,
@@ -288,7 +298,7 @@
 
   const locked = computed(() => readonly.value)
   const selectedWorkOrderType = computed(() =>
-    references.value.documentTypes.find((item) => item.id === model.workOrderTypeId)
+    references.value.documentTypes.find((item) => item.id === model.value.workOrderTypeId)
   )
   const projectRequired = computed(() => selectedWorkOrderType.value?.projectRequired ?? false)
   const activeExtensionFields = computed<WorkOrderExtensionField[]>(() =>
@@ -298,11 +308,11 @@
   )
   watch(detailAreaTotal, (total) => {
     if (!initializing.value && !quantityOverridden.value && detailRows.value.length) {
-      model.orderQuantity = total
+      model.value.orderQuantity = total
     }
   })
   function resetQuantityFromDetails(): void {
-    model.orderQuantity = detailAreaTotal.value
+    model.value.orderQuantity = detailAreaTotal.value
     quantityOverridden.value = false
   }
   const extensionDisplayValue = (field: WorkOrderExtensionField, value: unknown) => {
@@ -312,10 +322,10 @@
     return material ? `${material.code} · ${material.name}` : String(value)
   }
   const extensionItems = computed<FormItem[]>(() => [
-    { key: 'extensionHeader', label: '工单类型专用参数', type: 'divider', span: 24 },
     ...activeExtensionFields.value.map((field) => ({
-      key: field.key,
+      key: `extensionValues.${field.key}`,
       label: field.label,
+      span: 8,
       type:
         field.valueType === 'number'
           ? ('number' as const)
@@ -352,7 +362,7 @@
       ? [
           {
             id: item.id,
-            tenantId: model.tenantId,
+            tenantId: model.value.tenantId,
             employeeNo: item.code,
             employeeName: item.name,
             employmentStatus: 'active'
@@ -360,8 +370,22 @@
         ]
       : []
   }
+  const materialSummaryItems: ArtDescriptionItem<WorkOrderFormModel>[] = [
+    { key: 'materialCode', label: '物料编码', field: 'materialCode' },
+    { key: 'specificationModel', label: '规格型号', field: 'specificationModel' },
+    { key: 'drawingNo', label: '图号', field: 'drawingNo' },
+    { key: 'productionUnitName', label: '生产单位', field: 'productionUnitName' },
+    { key: 'plannerName', label: '计划员', field: 'plannerName' },
+    { key: 'dispatcherName', label: '调度员', field: 'dispatcherName' },
+    { key: 'inboundWarehouseName', label: '入库仓库', field: 'inboundWarehouseName', span: 3 }
+  ]
   const formItems = computed<FormItem[]>(() => [
-    { key: 'identity', label: '工单识别', type: 'divider', span: 24 },
+    {
+      key: 'identity',
+      label: '基本信息',
+      type: 'tab',
+      description: '先确定工单类型、项目与业务属性。'
+    },
     {
       key: 'tenantId',
       label: '所属租户',
@@ -420,43 +444,49 @@
         disabled: section.status !== 'active'
       })),
       props: {
-        disabled: locked.value || !model.projectId,
+        disabled: locked.value || !model.value.projectId,
         clearable: true,
         filterable: true,
-        placeholder: model.projectId ? '选择项目施工号' : '请先选择项目'
+        placeholder: model.value.projectId ? '选择项目施工号' : '请先选择项目'
       },
-      help: model.projectId
+      help: model.value.projectId
         ? '可选填当前项目已启用的施工号；下达时空值仅提醒。'
         : '关联项目后可选填施工号。'
     },
-    { key: 'plan', label: '产品与计划', type: 'divider', span: 24 },
+    {
+      key: 'source',
+      label: '工单来源',
+      type: 'select',
+      options: dictionaryOptions('mesWorkOrderSource'),
+      props: { disabled: locked.value }
+    },
+    { key: 'urgency', label: '紧急程度', type: 'slot' },
+    {
+      key: 'isInitialDocument',
+      label: '初始化单据',
+      type: 'switch',
+      span: 24,
+      props: { disabled: locked.value, activeText: '是', inactiveText: '否' },
+      help: '默认关闭；开启后用于标识初始化导入或期初生产单据。'
+    },
+    {
+      key: 'plan',
+      label: '产品与计划',
+      type: 'tab',
+      description: '选择产品，维护数量与计划日期。'
+    },
     {
       key: 'materialId',
       label: '物料描述',
       type: 'slot',
       span: 24
     },
-    { key: 'materialCode', label: '物料编码', type: 'text', span: 8 },
-    { key: 'specificationModel', label: '规格型号', type: 'text', span: 8 },
-    { key: 'drawingNo', label: '图号', type: 'text', span: 8 },
-    { key: 'productionUnitName', label: '生产单位', type: 'text', span: 8 },
-    { key: 'plannerName', label: '计划员', type: 'text', span: 8 },
-    { key: 'dispatcherName', label: '调度员', type: 'text', span: 8 },
-    {
-      key: 'inboundWarehouseName',
-      label: '入库仓库',
-      type: 'text',
-      span: 8,
-      help:
-        selectedMaterial.value?.materialType === 'FERT' && model.inboundWarehouseName
-          ? '成品入库按物料当前配置的成品仓办理。'
-          : undefined
-    },
+    { key: 'materialSummary', label: '', type: 'slot', span: 24 },
     {
       key: 'orderQuantity',
       label: '工单数量',
       type: 'slot',
-      span: 24,
+      span: 12,
       help: `按生产单明细面积自动汇总，当前合计 ${detailAreaTotal.value.toFixed(2)} ㎡；可手动修改。`
     },
     {
@@ -464,7 +494,7 @@
       label: '生产天数',
       type: 'number',
       props: { disabled: true, min: 0, precision: 0, class: '!w-full' },
-      help: `固定 ${model.productionFixedLeadDays} 天 + 前处理 ${model.productionPreprocessDays} 天 + 自制 ${model.selfMadeProductionDays} 天 + 后处理 ${model.productionPostprocessDays} 天`
+      help: `固定 ${model.value.productionFixedLeadDays} 天 + 前处理 ${model.value.productionPreprocessDays} 天 + 自制 ${model.value.selfMadeProductionDays} 天 + 后处理 ${model.value.productionPostprocessDays} 天`
     },
     {
       key: 'plannedStartDate',
@@ -491,29 +521,14 @@
       help: '修改后反推计划开始日期；若反推日期已过期，则从今天重新计算。'
     },
     {
-      key: 'source',
-      label: '工单来源',
-      type: 'select',
-      options: dictionaryOptions('mesWorkOrderSource'),
-      props: { disabled: locked.value }
+      key: 'sales',
+      label: '销售协同',
+      type: 'tab',
+      description: '关联客户、销售订单与跟单信息，补充特殊要求。'
     },
-    {
-      key: 'urgency',
-      label: '紧急程度',
-      type: 'slot',
-      span: 24
-    },
-    {
-      key: 'isInitialDocument',
-      label: '初始化单据',
-      type: 'switch',
-      span: 24,
-      props: { disabled: locked.value, activeText: '是', inactiveText: '否' },
-      help: '默认关闭；开启后用于标识初始化导入或期初生产单据。'
-    },
-    { key: 'sales', label: '销售协同', type: 'divider', span: 24 },
     {
       key: 'customerCode',
+      span: 8,
       label: '客户',
       type: 'select',
       options: references.value.customers.map((item) => ({
@@ -527,20 +542,22 @@
         placeholder: '请选择客户'
       }
     },
-    { key: 'salesOrderNo', label: '销售订单号', props: { disabled: locked.value } },
+    { key: 'salesOrderNo', label: '销售订单号', span: 8, props: { disabled: locked.value } },
     {
       key: 'salesOrderQuantity',
+      span: 8,
       label: '销售数量',
       type: 'number',
       props: { disabled: locked.value, min: 0, precision: 6, class: '!w-full' }
     },
-    { key: 'merchandiserId', label: '跟单员', type: 'slot' },
-    { key: 'salespersonId', label: '业务员', type: 'slot' },
-    { key: 'trackingNo', label: '跟踪号', props: { disabled: locked.value } },
-    { key: 'followNo', label: '跟随号', props: { disabled: locked.value } },
-    { key: 'customProcessCode', label: '定制工艺编号', props: { disabled: locked.value } },
+    { key: 'merchandiserId', label: '跟单员', type: 'slot', span: 8 },
+    { key: 'salespersonId', label: '业务员', type: 'slot', span: 8 },
+    { key: 'trackingNo', label: '跟踪号', span: 8, props: { disabled: locked.value } },
+    { key: 'followNo', label: '跟随号', span: 8, props: { disabled: locked.value } },
+    { key: 'customProcessCode', label: '定制工艺编号', span: 8, props: { disabled: locked.value } },
     {
       key: 'specificationQuantity',
+      span: 8,
       label: '规格数量',
       type: 'number',
       props: { disabled: locked.value, min: 0, precision: 6, class: '!w-full' }
@@ -549,16 +566,31 @@
       key: 'specialRequirement',
       label: '特殊要求',
       type: 'textarea',
-      span: 24,
+      span: 12,
       props: { disabled: locked.value, rows: 3, maxlength: 1000, showWordLimit: true }
     },
     {
       key: 'remark',
       label: '备注',
       type: 'textarea',
-      span: 24,
+      span: 12,
       props: { disabled: locked.value, rows: 3, maxlength: 1000, showWordLimit: true }
-    }
+    },
+    {
+      key: 'parameters',
+      label: '专用参数',
+      type: 'tab',
+      hidden: !activeExtensionFields.value.length,
+      description: '尺寸、芯材和面板按物料及 BOM 带入，允许人工调整。'
+    },
+    ...extensionItems.value,
+    {
+      key: 'details',
+      label: '生产明细',
+      type: 'tab',
+      description: '按区域维护尺寸与块数，面积自动汇总到工单数量。'
+    },
+    { key: 'productionDetails', label: '', type: 'slot', span: 24 }
   ])
   const rules = {
     tenantId: [{ required: true, message: '请选择所属租户', trigger: 'change' }],
@@ -570,35 +602,36 @@
   }
 
   async function loadReferences() {
-    const tenantId = model.tenantId
+    const tenantId = model.value.tenantId
     const [nextReferences, nextMaterialCategories] = await Promise.all([
       fetchMesReferences(tenantId),
       fetchMesMaterialCategories(tenantId)
     ])
-    if (model.tenantId !== tenantId) return
+    if (model.value.tenantId !== tenantId) return
     references.value = nextReferences
     materialCategories.value = nextMaterialCategories
     if (
       !currentId.value &&
-      !nextReferences.documentTypes.some((item) => item.id === model.workOrderTypeId)
+      !nextReferences.documentTypes.some((item) => item.id === model.value.workOrderTypeId)
     ) {
-      model.workOrderTypeId =
+      model.value.workOrderTypeId =
         nextReferences.documentTypes.find((item) => item.isDefault)?.id ?? null
     }
   }
   async function handleTenantChange(): Promise<void> {
+    bomOptionsRequestId++
     applyMaterial()
-    model.workOrderTypeId = null
+    model.value.workOrderTypeId = null
     for (const key of Object.keys(extensionValues)) delete extensionValues[key]
-    model.projectId = null
-    model.constructionNo = null
+    model.value.projectId = null
+    model.value.constructionNo = null
     projectSections.value = []
     await loadReferences()
   }
   async function fetchMaterialOptions(params: DataSelectFetchParams) {
-    if (!model.tenantId) return { data: [], total: 0 }
+    if (!model.value.tenantId) return { data: [], total: 0 }
     return fetchMesMaterialOptions({
-      tenantId: model.tenantId,
+      tenantId: model.value.tenantId,
       keyword: params.keyword,
       categoryId: String(params.filters.categoryId || '') || undefined,
       current: params.page,
@@ -606,12 +639,12 @@
     })
   }
   function applyPlanFromStart(value: string): void {
-    const plan = calculatePlanFromStart(value, model.productionDays)
-    if (plan) Object.assign(model, plan)
+    const plan = calculatePlanFromStart(value, model.value.productionDays)
+    if (plan) Object.assign(model.value, plan)
   }
   function applyPlanFromEnd(value: string): void {
-    const plan = calculatePlanFromEnd(value, model.productionDays)
-    if (plan) Object.assign(model, plan)
+    const plan = calculatePlanFromEnd(value, model.value.productionDays)
+    if (plan) Object.assign(model.value, plan)
   }
   function handlePlannedStartChange(value: unknown): void {
     if (typeof value === 'string') applyPlanFromStart(value)
@@ -637,7 +670,7 @@
         productionPostprocessDays
       })
     selectedMaterial.value = material
-    Object.assign(model, {
+    Object.assign(model.value, {
       materialId: material?.id || '',
       materialCode: material?.materialCode || material?.code || '',
       specificationModel: material?.specificationModel || material?.specification || '',
@@ -654,8 +687,8 @@
     })
     applyMaterialDimensions(material, overwriteDimensions)
     if (!material || !recalculatePlan) return
-    if (model.plannedStartDate) applyPlanFromStart(model.plannedStartDate)
-    else if (model.plannedEndDate) applyPlanFromEnd(model.plannedEndDate)
+    if (model.value.plannedStartDate) applyPlanFromStart(model.value.plannedStartDate)
+    else if (model.value.plannedEndDate) applyPlanFromEnd(model.value.plannedEndDate)
     else applyPlanFromStart(dayjs().format('YYYY-MM-DD'))
   }
   function handleMaterialChange(_value: unknown, rows: DataSelectRecord[]): void {
@@ -664,19 +697,19 @@
   }
   async function handleProjectChange(value: unknown): Promise<void> {
     const projectId = typeof value === 'string' ? value : ''
-    model.constructionNo = null
+    model.value.constructionNo = null
     projectSections.value = []
-    if (!projectId || !model.tenantId) return
-    const tenantId = model.tenantId
+    if (!projectId || !model.value.tenantId) return
+    const tenantId = model.value.tenantId
     try {
       const [bom, sections] = await Promise.all([
         fetchMesConfirmedProjectBom(tenantId, projectId),
         fetchMesProjectSections(tenantId, projectId)
       ])
-      if (model.projectId !== projectId || model.tenantId !== tenantId) return
+      if (model.value.projectId !== projectId || model.value.tenantId !== tenantId) return
       projectSections.value = sections
       const activeSections = sections.filter((section) => section.status === 'active')
-      if (activeSections.length === 1) model.constructionNo = activeSections[0].constructionNo
+      if (activeSections.length === 1) model.value.constructionNo = activeSections[0].constructionNo
       if (!bom?.material?.materialCode) return
       const materials = await fetchMesMaterialOptions({
         tenantId,
@@ -684,7 +717,7 @@
         current: 1,
         size: 20
       })
-      if (model.projectId !== projectId || model.tenantId !== tenantId) return
+      if (model.value.projectId !== projectId || model.value.tenantId !== tenantId) return
       const material = materials.data.find((item) => item.id === bom.materialId)
       if (material) {
         applyMaterial(material)
@@ -705,26 +738,50 @@
       }
     }
   }
-  async function populateExtensionFromBom(): Promise<void> {
+  async function populateExtensionFromBom(onlyMissing = false): Promise<void> {
     const requestId = ++bomOptionsRequestId
-    const sourcedFields = activeExtensionFields.value.filter((field) => field.sourceComponentTypeId)
-    if (!model.tenantId || !model.materialId || !sourcedFields.length) return
+    const tenantId = model.value.tenantId
+    const materialId = model.value.materialId
+    const workOrderTypeId = model.value.workOrderTypeId
+    const sourcedFields = activeExtensionFields.value.filter(
+      (field) =>
+        field.sourceComponentTypeId &&
+        (!onlyMissing || extensionValues[field.key] == null || extensionValues[field.key] === '')
+    )
+    if (readonly.value || !tenantId || !materialId || !sourcedFields.length) return
+    const previousValues = pick(
+      extensionValues,
+      sourcedFields.map((field) => field.key)
+    )
+    const isCurrent = () =>
+      requestId === bomOptionsRequestId &&
+      tenantId === model.value.tenantId &&
+      materialId === model.value.materialId &&
+      workOrderTypeId === model.value.workOrderTypeId &&
+      !readonly.value
     try {
       const items = await fetchMesBomComponentOptions(
-        model.tenantId,
-        model.materialId,
-        model.plannedStartDate || dayjs().format('YYYY-MM-DD')
+        tenantId,
+        materialId,
+        model.value.plannedStartDate || dayjs().format('YYYY-MM-DD')
       )
-      if (requestId !== bomOptionsRequestId) return
+      if (!isCurrent()) return
       for (const field of sourcedFields) {
+        // A user selection made while the BOM request was pending wins over the default.
+        if ((extensionValues[field.key] ?? '') !== (previousValues[field.key] ?? '')) continue
         const component = items.find(
           (item) => item.componentTypeId === field.sourceComponentTypeId
         )?.component
         extensionValues[field.key] = component?.id ?? null
       }
     } catch {
+      if (!isCurrent()) return
       ElMessage.warning('BOM 组件带入失败，请手动填写工单专用参数')
     }
+  }
+  function handleDialogClose(): void {
+    dialogRequestId++
+    bomOptionsRequestId++
   }
   function handleWorkOrderTypeChange(): void {
     for (const key of Object.keys(extensionValues)) delete extensionValues[key]
@@ -757,7 +814,7 @@
     'salesOrderQuantity'
   ] as const satisfies readonly (keyof MesWorkOrderInput)[]
   function buildPayload(): MesWorkOrderInput {
-    const payload = pick(model, workOrderInputKeys)
+    const payload = pick(model.value, workOrderInputKeys)
     return {
       ...payload,
       orderQuantity: Number(Number(payload.orderQuantity).toFixed(2)),
@@ -790,6 +847,8 @@
     }
   }
   const handleOpen = async (data: WorkOrderDialogOpenData) => {
+    activeFormTab.value = 'identity'
+    const openRequestId = ++dialogRequestId
     initializing.value = true
     bomOptionsRequestId++
     projectSections.value = []
@@ -847,7 +906,7 @@
         }
       : undefined
     Object.assign(
-      model,
+      model.value,
       data.row
         ? cloneDeep(data.row)
         : {
@@ -888,6 +947,7 @@
             salesOrderQuantity: null
           }
     )
+    model.value.extensionValues = extensionValues
     quantityOverridden.value = Boolean(
       data.row && Math.abs(Number(data.row.orderQuantity) - detailAreaTotal.value) > 0.01
     )
@@ -913,29 +973,47 @@
             ].map((code) => userStore.ensureDictLoaded(code))
           )
           await loadReferences()
-          if (model.projectId && model.tenantId) {
-            projectSections.value = await fetchMesProjectSections(model.tenantId, model.projectId)
+          if (openRequestId !== dialogRequestId) return
+          if (model.value.projectId && model.value.tenantId) {
+            const sections = await fetchMesProjectSections(
+              model.value.tenantId,
+              model.value.projectId
+            )
+            if (openRequestId !== dialogRequestId) return
+            projectSections.value = sections
           }
           if (selectedMaterial.value) {
-            const details = await fetchMesMaterialDetailsById(model.tenantId, model.materialId)
-            if (details && selectedMaterial.value?.id === model.materialId) {
+            const details = await fetchMesMaterialDetailsById(
+              model.value.tenantId,
+              model.value.materialId
+            )
+            if (openRequestId !== dialogRequestId) return
+            if (details && selectedMaterial.value?.id === model.value.materialId) {
               selectedMaterial.value = { ...selectedMaterial.value, ...details }
               applyMaterialDimensions(selectedMaterial.value, false)
             }
           }
+          await populateExtensionFromBom(true)
+          if (openRequestId !== dialogRequestId) return
           formRef.value?.clearValidate()
         } finally {
-          api.setLoading(false)
+          if (openRequestId === dialogRequestId) api.setLoading(false)
         }
       },
       onConfirm: async () => {
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
-          if (projectRequired.value && !model.projectId) {
+          if (projectRequired.value && !model.value.projectId) {
+            await formRef.value?.focusField('projectId')
             ElMessage.warning('工程项目工单必须选择项目')
             return false
           }
-          if (!detailsRef.value?.validate()) return false
+          if (!(await detailsRef.value?.validate({ focus: false }))) {
+            activeFormTab.value = 'details'
+            await nextTick()
+            await detailsRef.value?.focusFirstInvalidField()
+            return false
+          }
           const payload = buildPayload()
           await saveWorkOrder(payload, currentId.value || undefined)
           emit('success', currentId.value ? 'edit' : 'add')
@@ -949,9 +1027,3 @@
   }
   defineExpose({ handleOpen })
 </script>
-
-<style scoped lang="scss">
-  .work-order-dialog__context {
-    margin-bottom: 18px;
-  }
-</style>

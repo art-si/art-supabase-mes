@@ -8,22 +8,12 @@
         title="交期维护"
         :description="`将统一调整 ${selectedIds.length} 张待确认或异常工单的计划结束日期。`"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top" />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -41,7 +31,7 @@
   const dialogRef = ref<ArtDialogExpose<WorkOrderDueDateDialogOpenData>>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
   const selectedIds = ref<string[]>([])
-  const model = reactive({ plannedEndDate: '' })
+  const model = ref({ plannedEndDate: '' })
   const items: FormItem[] = [
     {
       key: 'plannedEndDate',
@@ -58,7 +48,7 @@
 
   async function handleOpen(data: WorkOrderDueDateDialogOpenData): Promise<void> {
     selectedIds.value = [...data.ids]
-    model.plannedEndDate = data.initialDate || ''
+    model.value.plannedEndDate = data.initialDate || ''
     await dialogRef.value?.handleOpen(data, {
       title: '交期维护',
       subtitle: `已选择 ${data.ids.length} 张工单`,
@@ -67,7 +57,10 @@
       onConfirm: async () => {
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
-          const result = await updateWorkOrderDueDates(selectedIds.value, model.plannedEndDate)
+          const result = await updateWorkOrderDueDates(
+            selectedIds.value,
+            model.value.plannedEndDate
+          )
           emit('success', result)
           return true
         } catch (error) {

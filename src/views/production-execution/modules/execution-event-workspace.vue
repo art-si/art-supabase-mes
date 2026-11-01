@@ -344,6 +344,7 @@
                       v-if="row.kind === 'mold' && row.status === 'open'"
                       type="delete"
                       permission="MesMold:Delete"
+                      :disabled="deleteBusy"
                       @click="removeEvent(row)"
                     />
                   </BusinessTableRowActions>
@@ -371,8 +372,6 @@
             :validate-on-rule-change="false"
             custom-layout
             scroll-to-error
-            :show-reset="false"
-            :show-submit="false"
             root-class="p-0! md:p-0!"
           >
             <div class="execution-event-page__form-grid">
@@ -670,15 +669,12 @@
       <ArtDialog ref="actionDialogRef" size="sm">
         <ArtForm
           ref="actionFormRef"
-          :model-value="actionForm"
-          @update:model-value="replaceReactiveModel(actionForm, $event)"
+          v-model="actionForm"
           :items="[]"
           :rules="actionRules"
           :validate-on-rule-change="false"
           custom-layout
           scroll-to-error
-          :show-reset="false"
-          :show-submit="false"
           root-class="p-0! md:p-0!"
         >
           <ElFormItem v-if="actionType === 'accept'" label="处理人" prop="personId" required>
@@ -784,15 +780,16 @@
       </ArtDrawer>
     </div>
   </ArtPermissionGuard>
+  <MasterDataDeleteGuard ref="deleteGuardRef" />
 </template>
 
 <script setup lang="ts">
   import './production-detail-intro.scss'
   import { createDateTimeFormatter } from '@/utils/ui/format'
-  import { replaceReactiveModel } from '@/utils/form/model'
+
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
-  import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+  import { computed, nextTick, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
@@ -817,7 +814,9 @@
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import BusinessTableWorkspaceActions from '@/components/business/business-table-workspace-actions/index.vue'
-  import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
+  import { useRecordDeleteGuard } from '@/hooks/core/useRecordDeleteGuard'
+  import MasterDataDeleteGuard from '@/components/business/master-data-delete-guard/index.vue'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { useUserStore } from '@/store/modules/user'
   import { exportExcel } from '@/utils/file'
@@ -852,7 +851,10 @@
   )
   const compactDetail = useMediaQuery('(max-width: 640px)')
   const detailColumns = computed(() => (compactDetail.value ? 1 : 2))
-  const { confirmDelete } = useArtFeedback()
+  const { deleteGuardRef, deleteRecords, deleteBusy } = useRecordDeleteGuard(
+    'mes_execution_event',
+    '模具记录'
+  )
   const router = useRouter()
   const userStore = useUserStore()
   const { getDictMap } = storeToRefs(userStore)
@@ -1135,7 +1137,7 @@
   const editingId = ref<string | null>(null)
   const actionEvent = ref<MesExecutionEvent | null>(null)
   const actionType = ref<'accept' | 'close'>('accept')
-  const actionForm = reactive({ personId: '', location: '', resolution: '' })
+  const actionForm = ref({ personId: '', location: '', resolution: '' })
   const actionRules = computed<FormRules>(() => ({
     ...(actionType.value === 'accept' || actionEvent.value?.kind === 'mold'
       ? {
@@ -1600,7 +1602,7 @@
     const row = rawRow as MesExecutionEvent
     actionEvent.value = row
     actionType.value = action
-    Object.assign(actionForm, {
+    Object.assign(actionForm.value, {
       personId: row.handlerPersonId || '',
       location: String(row.details.location || ''),
       resolution: ''
@@ -1626,15 +1628,15 @@
             action,
             payload:
               action === 'accept'
-                ? { handlerPersonId: actionForm.personId }
+                ? { handlerPersonId: actionForm.value.personId }
                 : {
-                    resolution: actionForm.resolution.trim(),
+                    resolution: actionForm.value.resolution.trim(),
                     details:
                       row.kind === 'mold'
                         ? {
                             unloadedAt: new Date().toISOString(),
-                            unloadPersonId: actionForm.personId,
-                            unloadLocation: actionForm.location.trim()
+                            unloadPersonId: actionForm.value.personId,
+                            unloadLocation: actionForm.value.location.trim()
                           }
                         : {}
                   }
@@ -1655,26 +1657,27 @@
   }
   async function removeEvent(rawRow: unknown) {
     const row = rawRow as MesExecutionEvent
-    try {
-      await confirmDelete(`确定删除模具记录“${row.title}”？`, { title: '删除记录' })
-      await saveExecutionEvent({
-        id: row.id,
-        kind: row.kind,
-        taskId: row.taskId,
-        workCenterId: row.workCenterId,
-        action: 'delete',
-        payload: {
-          title: row.title,
-          quantity: row.quantity,
-          details: row.details,
-          media: row.media,
-          remark: row.remark
-        }
-      })
-      await loadRows()
-    } catch {
-      /* cancel or shared API error */
-    }
+    await deleteRecords({
+      resources: [{ id: row.id, label: row.title }],
+      permission: 'MesMold:Delete',
+      remove: () =>
+        saveExecutionEvent({
+          id: row.id,
+          kind: row.kind,
+          taskId: row.taskId,
+          workCenterId: row.workCenterId,
+          action: 'delete',
+          payload: {
+            title: row.title,
+            quantity: row.quantity,
+            details: row.details,
+            media: row.media,
+            remark: row.remark
+          }
+        }),
+      successMessage: '模具记录已删除',
+      onDeleted: loadRows
+    })
   }
   async function exportRows() {
     try {

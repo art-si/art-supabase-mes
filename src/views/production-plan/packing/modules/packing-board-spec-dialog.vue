@@ -14,22 +14,12 @@
         :closable="false"
         show-icon
       />
-      <ArtForm
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :span="12"
-        :gutter="24"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm v-model="model" :items="items" :span="12" :gutter="24" label-position="top" />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
@@ -40,7 +30,7 @@
   const emit = defineEmits<{ success: [] }>()
   const dialogRef = ref<ArtDialogExpose<WorkOrderBoard>>()
   const board = ref<WorkOrderBoard>()
-  const model = reactive({ axis: '', thicknessMm: 0, unitWeightKg: null as number | null })
+  const model = ref({ axis: '', thicknessMm: 0, unitWeightKg: null as number | null })
   const items: FormItem[] = [
     { key: 'axis', label: '轴线（明细编号）', type: 'text' },
     { key: 'thicknessMm', label: '成品厚度 mm（工单板厚）', type: 'text' },
@@ -48,7 +38,7 @@
   ]
   async function handleOpen(row: WorkOrderBoard): Promise<void> {
     board.value = row
-    Object.assign(model, {
+    Object.assign(model.value, {
       axis: row.boardNo,
       thicknessMm: row.thicknessMm,
       unitWeightKg: row.unitWeightKg
@@ -59,15 +49,15 @@
       confirmText: '保存参数',
       onConfirm: async () => {
         try {
-          if (model.thicknessMm <= 0) {
+          if (model.value.thicknessMm <= 0) {
             ElMessage.warning('请先在生产工单专用参数中填写有效板厚')
             return false
           }
           await savePackingBoardSpec(
             row.id,
-            model.axis.trim(),
-            model.thicknessMm,
-            model.unitWeightKg
+            model.value.axis.trim(),
+            model.value.thicknessMm,
+            model.value.unitWeightKg
           )
           emit('success')
           return true

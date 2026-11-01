@@ -8,22 +8,12 @@
         :title="row?.workOrderNo || ''"
         :description="summary"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top" />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -40,7 +30,7 @@
   const dialogRef = ref<ArtDialogExpose<WorkOrderProgressDialogOpenData>>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
   const row = ref<MesWorkOrder>()
-  const model = reactive({ quantity: 0 })
+  const model = ref({ quantity: 0 })
   const remaining = computed(() =>
     Math.max(0, Number(row.value?.orderQuantity || 0) - Number(row.value?.completedQuantity || 0))
   )
@@ -73,7 +63,7 @@
 
   async function handleOpen(data: WorkOrderProgressDialogOpenData): Promise<void> {
     row.value = data.row
-    model.quantity = remaining.value
+    model.value.quantity = remaining.value
     await dialogRef.value?.handleOpen(data, {
       title: '工单报工',
       subtitle: data.row.workOrderNo,
@@ -83,7 +73,7 @@
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           if (!row.value) return false
-          const updated = await recordWorkOrderProgress(row.value.id, model.quantity)
+          const updated = await recordWorkOrderProgress(row.value.id, model.value.quantity)
           if (!updated) return false
           emit('success')
           return true

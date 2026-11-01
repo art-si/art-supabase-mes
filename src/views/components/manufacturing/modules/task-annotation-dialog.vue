@@ -8,16 +8,7 @@
         :title="taskTitle"
         :description="`${taskNo} · 批注仅影响现场提示，不改变工艺路线与报工数据。`"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      >
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top">
         <template #urgency>
           <WorkOrderUrgencySegmented v-model="model.urgency" />
         </template>
@@ -27,7 +18,6 @@
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { normalizeNullableText } from '@/utils/form/normalize'
@@ -48,7 +38,7 @@
   const taskId = ref('')
   const taskNo = ref('')
   const taskTitle = ref('工序任务')
-  const model = reactive<Pick<MesOperationTask, 'urgency' | 'annotation'>>({
+  const model = ref<Pick<MesOperationTask, 'urgency' | 'annotation'>>({
     urgency: 'normal',
     annotation: ''
   })
@@ -81,8 +71,8 @@
     taskId.value = data.row.id
     taskNo.value = data.row.taskNo
     taskTitle.value = data.row.operationName || '工序任务'
-    model.urgency = data.row.urgency
-    model.annotation = data.row.annotation || ''
+    model.value.urgency = data.row.urgency
+    model.value.annotation = data.row.annotation || ''
     await dialogRef.value?.handleOpen(data, {
       title: '工序批注',
       subtitle: data.row.workOrder?.workOrderNo || data.row.taskNo,
@@ -93,8 +83,8 @@
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           await annotateOperationTask(
             taskId.value,
-            model.urgency,
-            normalizeNullableText(model.annotation)
+            model.value.urgency,
+            normalizeNullableText(model.value.annotation)
           )
           emit('success')
           return true

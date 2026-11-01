@@ -69,10 +69,11 @@
         primary-min="220px"
         primary-max="400px"
         :breakpoint="1000"
+        stacked-primary-size="520px"
       >
         <template #primary>
           <ArtSectionCard
-            :show-scrollbar="false"
+            scrollbar-always
             class="packing-page__orders"
             title="待排生产工单"
             :subtitle="`需排包工单 · 当前 ${visibleOrders.length} 单`"
@@ -83,92 +84,93 @@
             empty-description="请先创建已启用排包配置的生产工单。"
             @retry="loadOrders"
           >
-            <div class="packing-page__filters">
-              <ElInput
-                v-model="keyword"
-                clearable
-                placeholder="工单、物料、规格、项目或施工号"
-                aria-label="组合查询工单"
-              >
-                <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
-              </ElInput>
-              <ElDatePicker
-                v-model="startDates"
-                type="daterange"
-                value-format="YYYY-MM-DD"
-                start-placeholder="开工起"
-                end-placeholder="开工止"
-                unlink-panels
-                clearable
-                aria-label="要求开工日期区间"
-              />
-              <ElCheckbox v-model="includePacked">包含已排包和已发布</ElCheckbox>
-            </div>
-            <ElScrollbar class="packing-page__order-scroll" always>
-              <div v-if="visibleOrders.length" class="packing-page__order-list">
-                <button
-                  v-for="order in visibleOrders"
-                  :key="order.id"
-                  type="button"
-                  class="packing-page__order"
-                  :class="{ 'is-selected': order.id === orderId }"
-                  :aria-pressed="order.id === orderId"
-                  :aria-busy="workOrderDetail.openingId === order.id"
-                  :title="
-                    hasAuth('MesWorkOrder:View')
-                      ? '单击查看排包，双击或 Alt+Enter 查看生产工单'
-                      : '单击查看排包'
-                  "
-                  @click="chooseOrder(order.id)"
-                  @dblclick="viewWorkOrder(order)"
-                  @keydown.alt.enter.prevent="viewWorkOrder(order)"
+            <template #toolbar
+              ><div class="packing-page__filters">
+                <ElInput
+                  v-model="keyword"
+                  clearable
+                  placeholder="工单、物料、规格、项目或施工号"
+                  aria-label="组合查询工单"
                 >
-                  <span class="packing-page__order-top">
-                    <strong>{{ order.workOrderNo }}</strong>
-                    <ElTag v-if="workOrderDetail.openingId === order.id" size="small" type="info"
-                      >加载中</ElTag
-                    >
-                    <ElTag v-else size="small" :type="orderStatus(order).type" effect="light">{{
-                      orderStatus(order).label
-                    }}</ElTag>
-                  </span>
-                  <span class="packing-page__order-name" :title="order.materialNameSnapshot">{{
-                    order.materialNameSnapshot
-                  }}</span>
-                  <span class="packing-page__order-progress"
-                    >{{
-                      order.id === orderId && !detailLoading ? packedTotal : order.packedPieces
-                    }}/{{ order.boardPieces }} 块</span
-                  >
-                  <span class="packing-page__order-bottom">
-                    <span>{{ order.projectNameSnapshot || '未关联项目' }}</span>
-                    <time>{{ order.plannedStartDate || '未设开工日' }}</time>
-                  </span>
-                </button>
-              </div>
-              <ArtEmptyState
-                v-else-if="!loading && !error"
-                title="当前条件下没有工单"
-                description="可清除日期或勾选已排包后重试。"
-                size="compact"
-              />
-            </ElScrollbar>
-            <div class="packing-page__rule-field">
-              <span>自动排包规则</span>
-              <ElSelect
-                v-model="selectedRuleId"
-                :disabled="!selectedOrder || isPublished || packs.some((pack) => pack.inboundAt)"
-                placeholder="选择板材排包规则"
-                aria-label="板材排包规则"
-              >
-                <ElOption
-                  v-for="rule in scopedRules"
-                  :key="rule.id"
-                  :label="rule.ruleName"
-                  :value="rule.id"
+                  <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
+                </ElInput>
+                <ElDatePicker
+                  v-model="startDates"
+                  type="daterange"
+                  value-format="YYYY-MM-DD"
+                  start-placeholder="开工起"
+                  end-placeholder="开工止"
+                  unlink-panels
+                  clearable
+                  aria-label="要求开工日期区间"
                 />
-              </ElSelect>
+                <ElCheckbox v-model="includePacked">包含已排包和已发布</ElCheckbox>
+              </div></template
+            >
+            <div v-if="visibleOrders.length" class="packing-page__order-list">
+              <button
+                v-for="order in visibleOrders"
+                :key="order.id"
+                type="button"
+                class="packing-page__order"
+                :class="{ 'is-selected': order.id === orderId }"
+                :aria-pressed="order.id === orderId"
+                :aria-busy="workOrderDetail.openingId === order.id"
+                :title="
+                  hasAuth('MesWorkOrder:View')
+                    ? '单击查看排包，双击或 Alt+Enter 查看生产工单'
+                    : '单击查看排包'
+                "
+                @click="chooseOrder(order.id)"
+                @dblclick="viewWorkOrder(order)"
+                @keydown.alt.enter.prevent="viewWorkOrder(order)"
+              >
+                <span class="packing-page__order-top">
+                  <strong>{{ order.workOrderNo }}</strong>
+                  <ElTag v-if="workOrderDetail.openingId === order.id" size="small" type="info"
+                    >加载中</ElTag
+                  >
+                  <ElTag v-else size="small" :type="orderStatus(order).type" effect="light">{{
+                    orderStatus(order).label
+                  }}</ElTag>
+                </span>
+                <span class="packing-page__order-name" :title="order.materialNameSnapshot">{{
+                  order.materialNameSnapshot
+                }}</span>
+                <span class="packing-page__order-progress"
+                  >{{
+                    order.id === orderId && !detailLoading ? packedTotal : order.packedPieces
+                  }}/{{ order.boardPieces }} 块</span
+                >
+                <span class="packing-page__order-bottom">
+                  <span>{{ order.projectNameSnapshot || '未关联项目' }}</span>
+                  <time>{{ order.plannedStartDate || '未设开工日' }}</time>
+                </span>
+              </button>
             </div>
+            <ArtEmptyState
+              v-else-if="!loading && !error"
+              title="当前条件下没有工单"
+              description="可清除日期或勾选已排包后重试。"
+              size="compact"
+            />
+            <template #footer
+              ><div class="packing-page__rule-field">
+                <span>自动排包规则</span>
+                <ElSelect
+                  v-model="selectedRuleId"
+                  :disabled="!selectedOrder || isPublished || packs.some((pack) => pack.inboundAt)"
+                  placeholder="选择板材排包规则"
+                  aria-label="板材排包规则"
+                >
+                  <ElOption
+                    v-for="rule in scopedRules"
+                    :key="rule.id"
+                    :label="rule.ruleName"
+                    :value="rule.id"
+                  />
+                </ElSelect> </div
+            ></template>
           </ArtSectionCard>
         </template>
         <ArtWorkspaceSplitter
@@ -1326,14 +1328,6 @@
     min-height: 0;
   }
 
-  .packing-page__orders :deep(.art-section-card__body) {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: var(--art-space-3);
-    min-height: 0;
-  }
-
   .packing-page__filters,
   .packing-page__rule-field {
     display: grid;
@@ -1363,15 +1357,9 @@
     color: var(--el-text-color-regular);
   }
 
-  .packing-page__order-scroll {
-    flex: 1;
-    min-height: 180px;
-  }
-
   .packing-page__order-list {
     display: grid;
     gap: 4px;
-    padding-right: 8px;
   }
 
   .packing-page__order {

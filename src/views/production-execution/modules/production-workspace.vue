@@ -92,7 +92,6 @@
           </div>
           <div class="production-workspace__three">
             <ArtSectionCard
-              :show-scrollbar="false"
               class="production-workspace__task-card"
               title="工序任务一览"
               :subtitle="
@@ -107,70 +106,68 @@
               :min-height="480"
               @retry="loadTasks"
             >
-              <ElScrollbar class="production-workspace__task-list">
-                <div class="production-workspace__task-list-inner">
-                  <button
-                    v-for="item in tasks"
-                    :key="item.id"
-                    type="button"
-                    class="production-workspace__task"
-                    :class="{ 'is-active': item.id === selectedTask?.id }"
-                    :aria-pressed="item.id === selectedTask?.id"
-                    @click="selectTask(item)"
-                    @dblclick="viewWorkOrder(item)"
-                    :title="
-                      hasAuth('MesWorkOrder:View') ? '单击选择任务，双击查看生产工单' : undefined
-                    "
+              <div class="production-workspace__task-list-inner">
+                <button
+                  v-for="item in tasks"
+                  :key="item.id"
+                  type="button"
+                  class="production-workspace__task"
+                  :class="{ 'is-active': item.id === selectedTask?.id }"
+                  :aria-pressed="item.id === selectedTask?.id"
+                  @click="selectTask(item)"
+                  @dblclick="viewWorkOrder(item)"
+                  :title="
+                    hasAuth('MesWorkOrder:View') ? '单击选择任务，双击查看生产工单' : undefined
+                  "
+                >
+                  <span class="production-workspace__task-top"
+                    ><strong>{{ item.workOrder?.workOrderNo || '—' }}</strong
+                    ><ElTag
+                      size="small"
+                      :type="item.operationStatus === 'completed' ? 'success' : 'primary'"
+                      effect="plain"
+                      >{{ taskStatus(item) }}</ElTag
+                    ></span
                   >
-                    <span class="production-workspace__task-top"
-                      ><strong>{{ item.workOrder?.workOrderNo || '—' }}</strong
-                      ><ElTag
-                        size="small"
-                        :type="item.operationStatus === 'completed' ? 'success' : 'primary'"
-                        effect="plain"
-                        >{{ taskStatus(item) }}</ElTag
-                      ></span
-                    >
-                    <span
-                      class="production-workspace__task-no"
-                      :title="`${item.taskNo} · ${item.workOrder?.workOrderTypeNameSnapshot || '生产任务'} · ${item.workOrder?.projectNameSnapshot || '无项目'}`"
-                      >{{ item.taskNo }} ·
-                      {{ item.workOrder?.workOrderTypeNameSnapshot || '生产任务' }} ·
-                      {{ item.workOrder?.projectNameSnapshot || '无项目' }}</span
-                    >
-                    <span class="production-workspace__task-name"
-                      >{{ item.sequenceNo }} / {{ item.operationCode }}
-                      {{ item.operationName }}</span
-                    >
-                    <span
-                      class="production-workspace__task-product"
-                      :title="`${item.workOrder?.materialCodeSnapshot || '—'} · ${item.workOrder?.materialNameSnapshot || '—'}`"
-                      >{{ item.workOrder?.materialCodeSnapshot }} ·
-                      {{ item.workOrder?.materialNameSnapshot }}</span
-                    >
-                    <span class="production-workspace__task-bottom"
-                      ><span
-                        >{{ item.completedQuantity }} / {{ item.plannedQuantity }} ·
-                        {{ taskPlannedHours(item) }}</span
-                      ><span>{{ taskPercent(item) }}%</span></span
-                    >
-                    <ElProgress
-                      :percentage="taskPercent(item)"
-                      :show-text="false"
-                      :stroke-width="5"
-                    />
-                  </button>
-                </div>
-              </ElScrollbar>
-              <ElPagination
-                v-model:current-page="page"
-                small
-                background
-                layout="prev, pager, next"
-                :page-size="20"
-                :total="total"
-                class="production-workspace__pager"
-              />
+                  <span
+                    class="production-workspace__task-no"
+                    :title="`${item.taskNo} · ${item.workOrder?.workOrderTypeNameSnapshot || '生产任务'} · ${item.workOrder?.projectNameSnapshot || '无项目'}`"
+                    >{{ item.taskNo }} ·
+                    {{ item.workOrder?.workOrderTypeNameSnapshot || '生产任务' }} ·
+                    {{ item.workOrder?.projectNameSnapshot || '无项目' }}</span
+                  >
+                  <span class="production-workspace__task-name"
+                    >{{ item.sequenceNo }} / {{ item.operationCode }} {{ item.operationName }}</span
+                  >
+                  <span
+                    class="production-workspace__task-product"
+                    :title="`${item.workOrder?.materialCodeSnapshot || '—'} · ${item.workOrder?.materialNameSnapshot || '—'}`"
+                    >{{ item.workOrder?.materialCodeSnapshot }} ·
+                    {{ item.workOrder?.materialNameSnapshot }}</span
+                  >
+                  <span class="production-workspace__task-bottom"
+                    ><span
+                      >{{ item.completedQuantity }} / {{ item.plannedQuantity }} ·
+                      {{ taskPlannedHours(item) }}</span
+                    ><span>{{ taskPercent(item) }}%</span></span
+                  >
+                  <ElProgress
+                    :percentage="taskPercent(item)"
+                    :show-text="false"
+                    :stroke-width="5"
+                  />
+                </button>
+              </div>
+              <template #footer
+                ><ElPagination
+                  v-model:current-page="page"
+                  small
+                  background
+                  layout="prev, pager, next"
+                  :page-size="20"
+                  :total="total"
+                  class="production-workspace__pager"
+              /></template>
             </ArtSectionCard>
             <ElScrollbar class="production-workspace__detail-scroll">
               <div class="production-workspace__detail-column">
@@ -324,7 +321,6 @@
               </div>
             </ElScrollbar>
             <ArtSectionCard
-              :show-scrollbar="false"
               class="production-workspace__attendance"
               title="出勤记录"
               subtitle="上机、下机时间与现场人员"
@@ -343,12 +339,14 @@
                   ><template #icon><ArtSvgIcon icon="ri:time-line" /></template>上机打卡</ElButton
                 ></template
               >
-              <template v-if="selectedTask">
+              <template v-if="selectedTask" #toolbar>
                 <div class="production-workspace__attendance-summary"
                   ><strong>{{ activeAttendance.length }}</strong
                   ><span>当前在岗人员</span></div
                 >
-                <ElScrollbar v-if="attendance.length" class="production-workspace__attendance-list">
+              </template>
+              <template v-if="selectedTask">
+                <div v-if="attendance.length" class="production-workspace__attendance-list">
                   <div class="production-workspace__attendance-list-inner">
                     <article v-for="item in attendance" :key="item.id"
                       ><span class="production-workspace__avatar">{{
@@ -367,7 +365,7 @@
                       ></article
                     >
                   </div>
-                </ElScrollbar>
+                </div>
                 <ArtEmptyState
                   v-else
                   title="暂无打卡记录"
@@ -503,13 +501,10 @@
       <ArtDialog ref="clockDialogRef" size="sm"
         ><ArtForm
           ref="clockFormRef"
-          :model-value="clockForm"
-          @update:model-value="replaceReactiveModel(clockForm, $event)"
+          v-model="clockForm"
           :items="[]"
           :rules="clockRules"
           custom-layout
-          :show-reset="false"
-          :show-submit="false"
           root-class="p-0! md:p-0!"
           ><ElFormItem label="上机人员" prop="personIds" required
             ><ArtUserSelect
@@ -522,13 +517,10 @@
       <ArtDialog ref="feedDialogRef" size="md"
         ><ArtForm
           ref="feedFormRef"
-          :model-value="feedForm"
-          @update:model-value="replaceReactiveModel(feedForm, $event)"
+          v-model="feedForm"
           :items="[]"
           :rules="feedRules"
           custom-layout
-          :show-reset="false"
-          :show-submit="false"
           root-class="p-0! md:p-0!"
           ><ElFormItem label="投料物料" prop="materialCode" required
             ><ElSelect v-model="feedForm.materialCode" filterable placeholder="选择本工序物料"
@@ -569,10 +561,9 @@
 
 <script setup lang="ts">
   import { createDateTimeFormatter } from '@/utils/ui/format'
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
-  import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+  import { computed, nextTick, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import { ElMessage, type FormRules } from 'element-plus'
   import type { ColumnOption } from '@/types'
@@ -697,7 +688,7 @@
   const reportFormRef = ref<InstanceType<typeof ProductionReportForm>>()
   const compactDetail = useMediaQuery('(max-width: 640px)')
   const detailColumns = computed(() => (compactDetail.value ? 1 : 2))
-  const clockForm = reactive({ personIds: [] as string[] })
+  const clockForm = ref({ personIds: [] as string[] })
   const clockRules: FormRules = {
     personIds: [
       { type: 'array', required: true, min: 1, message: '请选择上机人员', trigger: 'change' }
@@ -705,7 +696,7 @@
   }
   const feedRows = ref<MesExecutionEvent[]>([])
   const esopDocuments = ref<MesExecutionEsopDocument[]>([])
-  const feedForm = reactive({
+  const feedForm = ref({
     materialCode: '',
     quantity: 1,
     batchNo: '',
@@ -1107,7 +1098,7 @@
   function openFeed() {
     const task = selectedTask.value
     if (!task?.workCenterId || !materials.value.length) return
-    Object.assign(feedForm, {
+    Object.assign(feedForm.value, {
       materialCode: materials.value[0]?.componentMaterialCode || '',
       quantity: 1,
       batchNo: '',
@@ -1119,7 +1110,7 @@
       title: '记录投料',
       onConfirm: async () => {
         const material = materials.value.find(
-          (item) => item.componentMaterialCode === feedForm.materialCode
+          (item) => item.componentMaterialCode === feedForm.value.materialCode
         )
         try {
           if (!(await validateArtFormForSubmit(feedFormRef.value))) return false
@@ -1139,16 +1130,16 @@
             action: 'create',
             payload: {
               title: `投料 ${material.componentMaterialCode}`,
-              quantity: feedForm.quantity,
-              handlerPersonId: feedForm.personId || null,
+              quantity: feedForm.value.quantity,
+              handlerPersonId: feedForm.value.personId || null,
               details: {
                 materialCode: material.componentMaterialCode,
                 materialName: material.componentMaterialName,
                 unitName: material.unitName,
-                batchNo: feedForm.batchNo.trim()
+                batchNo: feedForm.value.batchNo.trim()
               },
               media: [],
-              remark: feedForm.remark.trim()
+              remark: feedForm.value.remark.trim()
             }
           })
         } catch (error) {
@@ -1163,7 +1154,7 @@
   function openClock(direction: 'in' | 'out') {
     if (!selectedTask.value) return
     if (direction === 'out') return
-    clockForm.personIds = []
+    clockForm.value.personIds = []
     void nextTick(() => clockFormRef.value?.clearValidate())
     clockDialogRef.value?.handleOpen(undefined, {
       title: '上机打卡',
@@ -1176,7 +1167,7 @@
           return false
         }
         try {
-          await clockExecution(selectedTask.value.id, clockForm.personIds, 'in')
+          await clockExecution(selectedTask.value.id, clockForm.value.personIds, 'in')
         } catch (error) {
           notifyFriendlyError(error, '上机打卡失败，请稍后重试')
           return false
@@ -1308,14 +1299,6 @@
     flex-direction: column;
   }
 
-  .production-workspace__task-card :deep(.art-section-card__body),
-  .production-workspace__attendance :deep(.art-section-card__body) {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-  }
-
   .production-workspace__detail-scroll {
     height: 100%;
   }
@@ -1325,12 +1308,7 @@
     gap: 12px;
   }
 
-  .production-workspace__task-list {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .production-workspace__task-list :deep(.el-scrollbar__wrap) {
+  .production-workspace__task-card :deep(.art-section-card__scrollbar > .el-scrollbar__wrap) {
     scroll-snap-type: y proximity;
   }
 
@@ -1338,7 +1316,6 @@
     display: grid;
     gap: 8px;
     align-content: start;
-    padding-bottom: 4px;
   }
 
   .production-workspace__task {
@@ -1512,15 +1489,9 @@
     color: var(--el-text-color-regular);
   }
 
-  .production-workspace__attendance-list {
-    flex: 1;
-    min-height: 0;
-  }
-
   .production-workspace__attendance-list-inner {
     display: grid;
     gap: 10px;
-    padding-right: 8px;
     padding-bottom: 72px;
   }
 

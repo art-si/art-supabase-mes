@@ -1,1 +1,0 @@
-import{G as e}from"./_baseIsEqual-BfTTsQfE.js";var t=function(){return e.Date.now()};export{t};

@@ -252,129 +252,138 @@
             ><ElTag :type="statusTone(detailReport.status)" effect="plain">{{
               statusLabel(detailReport.status)
             }}</ElTag></div
-          ><ArtSectionTitle>生产任务</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="开始加工">{{
-              formatTime(detailReport.startedAt)
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="报工时间">{{
-              formatTime(detailReport.reportedAt)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="工作中心">{{
-              detailReport.workCenter?.name || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="实际机台">{{
-              detailReport.equipmentId
-                ? `${detailReport.task?.equipmentCodeSnapshot || '—'} · ${detailReport.task?.equipmentNameSnapshot || '—'}`
-                : '未分配机台'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="班次">{{
-              detailReport.shiftName || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="产品"
-              >{{ detailReport.task?.workOrder?.materialCodeSnapshot }} ·
-              {{ detailReport.task?.workOrder?.materialNameSnapshot }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="规格">{{
-              detailReport.task?.workOrder?.specificationSnapshot || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="项目">{{
-              detailReport.task?.workOrder?.projectNameSnapshot || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="图号">{{
-              detailReport.task?.workOrder?.drawingNoSnapshot || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="工序序列 / 类型"
-              >{{ detailReport.task?.sequenceNo ?? '—' }} /
-              {{ detailReport.task?.sequenceType || '—' }}</ElDescriptionsItem
-            >
-            <ElDescriptionsItem label="工单数量">{{
-              detailReport.task?.workOrder?.orderQuantity ?? '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="要求完工日期">{{
-              detailReport.task?.requiredCompletionDate || '—'
-            }}</ElDescriptionsItem>
-          </ElDescriptions>
-          <ArtSectionTitle>产量与工时</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="标准时产能">{{
-              formatCapacity(detailReport)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="计划数量">{{
-              detailReport.task?.plannedQuantity ?? '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="良品数量">{{
-              detailReport.goodQuantity
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="加工不良">{{
-              detailReport.processBadQuantity
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="来料不良">{{
-              detailReport.materialBadQuantity
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="机器用时"
-              >{{ machineHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
-            ><ElDescriptionsItem label="人工用时"
-              >{{ laborHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
-            >
-            <ElDescriptionsItem label="机器计数">待接入设备采集</ElDescriptionsItem>
-            <ElDescriptionsItem label="灯态 / OEE">待接入设备采集</ElDescriptionsItem>
-            <ElDescriptionsItem label="良品率">{{ goodRate(detailReport) }}%</ElDescriptionsItem
-            ><ElDescriptionsItem label="计划达成率"
-              >{{ planRate(detailReport) }}%</ElDescriptionsItem
-            >
-          </ElDescriptions>
-          <ArtSectionTitle>补偿与审批</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="补偿工时 / 原因" :span="detailColumns"
-              >{{ detailReport.compensationHours }} h ·
-              {{ detailReport.compensationReason || '—' }}</ElDescriptionsItem
-            >
-            <ElDescriptionsItem label="奖惩工时 / 原因" :span="detailColumns"
-              >{{ detailReport.rewardPenaltyHours }} h ·
-              {{ detailReport.rewardPenaltyReason || '—' }}</ElDescriptionsItem
-            >
-            <ElDescriptionsItem label="报工人">{{
-              detailReport.reporterName || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="操作人员">{{
-              operatorNames(detailReport.operatorPersonIds)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="审批人">{{
-              detailReport.reviewerName || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="审批时间">{{
-              formatTime(detailReport.reviewedAt)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem
-              v-if="detailReport.rejectReason"
-              label="驳回原因"
-              :span="detailColumns"
-              >{{ detailReport.rejectReason }}</ElDescriptionsItem
-            >
-            <ElDescriptionsItem label="备注" :span="detailColumns">{{
-              detailReport.remark || '—'
-            }}</ElDescriptionsItem> </ElDescriptions
-          ><ArtSectionTitle v-if="detailReport.defects?.length">不良原因</ArtSectionTitle
-          ><div
-            v-for="defect in detailReport.defects"
-            :key="defect.id"
-            class="report-ledger__defect"
-            ><span
-              >{{ defect.category === 'process' ? '加工不良' : '来料不良' }} ·
-              {{ defect.reason?.code }} {{ defect.reason?.name }}</span
-            ><strong>{{ defect.quantity }}</strong></div
-          ><ArtSectionTitle v-if="detailReport.media?.length">现场附件</ArtSectionTitle
-          ><div v-if="detailReport.media?.length" class="report-ledger__media"
-            ><a
-              v-for="(url, index) in detailReport.media"
-              :key="url"
-              :href="url"
-              target="_blank"
-              rel="noopener noreferrer"
-              ><ArtSvgIcon icon="ri:attachment-2" />附件 {{ index + 1 }}</a
-            ></div
-          ></div
-        ></ArtDrawer
+          >
+          <ElTabs v-model="detailTab" class="min-w-0">
+            <ElTabPane name="task" label="生产任务" :lazy="false">
+              <ArtSectionTitle>生产任务</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border>
+                <ElDescriptionsItem label="开始加工">{{
+                  formatTime(detailReport.startedAt)
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="报工时间">{{
+                  formatTime(detailReport.reportedAt)
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="工作中心">{{
+                  detailReport.workCenter?.name || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="实际机台">{{
+                  detailReport.equipmentId
+                    ? `${detailReport.task?.equipmentCodeSnapshot || '—'} · ${detailReport.task?.equipmentNameSnapshot || '—'}`
+                    : '未分配机台'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="班次">{{
+                  detailReport.shiftName || '—'
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="产品"
+                  >{{ detailReport.task?.workOrder?.materialCodeSnapshot }} ·
+                  {{ detailReport.task?.workOrder?.materialNameSnapshot }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="规格">{{
+                  detailReport.task?.workOrder?.specificationSnapshot || '—'
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="项目">{{
+                  detailReport.task?.workOrder?.projectNameSnapshot || '—'
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="图号">{{
+                  detailReport.task?.workOrder?.drawingNoSnapshot || '—'
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="工序序列 / 类型"
+                  >{{ detailReport.task?.sequenceNo ?? '—' }} /
+                  {{ detailReport.task?.sequenceType || '—' }}</ElDescriptionsItem
+                >
+                <ElDescriptionsItem label="工单数量">{{
+                  detailReport.task?.workOrder?.orderQuantity ?? '—'
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="要求完工日期">{{
+                  detailReport.task?.requiredCompletionDate || '—'
+                }}</ElDescriptionsItem>
+              </ElDescriptions>
+            </ElTabPane>
+            <ElTabPane name="quantity" label="产量与工时" :lazy="false">
+              <ArtSectionTitle>产量与工时</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border>
+                <ElDescriptionsItem label="标准时产能">{{
+                  formatCapacity(detailReport)
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="计划数量">{{
+                  detailReport.task?.plannedQuantity ?? '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="良品数量">{{
+                  detailReport.goodQuantity
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="加工不良">{{
+                  detailReport.processBadQuantity
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="来料不良">{{
+                  detailReport.materialBadQuantity
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="机器用时"
+                  >{{ machineHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
+                ><ElDescriptionsItem label="人工用时"
+                  >{{ laborHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
+                >
+                <ElDescriptionsItem label="机器计数">待接入设备采集</ElDescriptionsItem>
+                <ElDescriptionsItem label="灯态 / OEE">待接入设备采集</ElDescriptionsItem>
+                <ElDescriptionsItem label="良品率">{{ goodRate(detailReport) }}%</ElDescriptionsItem
+                ><ElDescriptionsItem label="计划达成率"
+                  >{{ planRate(detailReport) }}%</ElDescriptionsItem
+                >
+              </ElDescriptions>
+            </ElTabPane>
+            <ElTabPane name="review" label="审批与附件" :lazy="false">
+              <ArtSectionTitle>补偿与审批</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border>
+                <ElDescriptionsItem label="补偿工时 / 原因" :span="detailColumns"
+                  >{{ detailReport.compensationHours }} h ·
+                  {{ detailReport.compensationReason || '—' }}</ElDescriptionsItem
+                >
+                <ElDescriptionsItem label="奖惩工时 / 原因" :span="detailColumns"
+                  >{{ detailReport.rewardPenaltyHours }} h ·
+                  {{ detailReport.rewardPenaltyReason || '—' }}</ElDescriptionsItem
+                >
+                <ElDescriptionsItem label="报工人">{{
+                  detailReport.reporterName || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="操作人员">{{
+                  operatorNames(detailReport.operatorPersonIds)
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="审批人">{{
+                  detailReport.reviewerName || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="审批时间">{{
+                  formatTime(detailReport.reviewedAt)
+                }}</ElDescriptionsItem>
+                <ElDescriptionsItem
+                  v-if="detailReport.rejectReason"
+                  label="驳回原因"
+                  :span="detailColumns"
+                  >{{ detailReport.rejectReason }}</ElDescriptionsItem
+                >
+                <ElDescriptionsItem label="备注" :span="detailColumns">{{
+                  detailReport.remark || '—'
+                }}</ElDescriptionsItem> </ElDescriptions
+              ><ArtSectionTitle v-if="detailReport.defects?.length">不良原因</ArtSectionTitle
+              ><div
+                v-for="defect in detailReport.defects"
+                :key="defect.id"
+                class="report-ledger__defect"
+                ><span
+                  >{{ defect.category === 'process' ? '加工不良' : '来料不良' }} ·
+                  {{ defect.reason?.code }} {{ defect.reason?.name }}</span
+                ><strong>{{ defect.quantity }}</strong></div
+              ><ArtSectionTitle v-if="detailReport.media?.length">现场附件</ArtSectionTitle
+              ><div v-if="detailReport.media?.length" class="report-ledger__media"
+                ><a
+                  v-for="(url, index) in detailReport.media"
+                  :key="url"
+                  :href="url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  ><ArtSvgIcon icon="ri:attachment-2" />附件 {{ index + 1 }}</a
+                ></div
+              >
+            </ElTabPane>
+          </ElTabs>
+        </div></ArtDrawer
       >
       <ProductionReportForm ref="formRef" @saved="loadRows" />
     </div>
@@ -387,7 +396,7 @@
   import { uniq } from 'lodash-es'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
-  import { ElMessage } from 'element-plus'
+  import { ElMessage, ElTabs, ElTabPane } from 'element-plus'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
   import ArtTableQuery from '@/components/core/tables/art-table-query/index.vue'
   import type { ArtTableQueryExpose } from '@/components/core/tables/art-table-query/index.vue'
@@ -537,6 +546,7 @@
   const resetting = ref(false)
   const error = ref('')
   const detailReport = ref<MesProductionReport | null>(null)
+  const detailTab = ref('task')
   const detailDrawerRef = ref<ArtDrawerExpose<MesProductionReport>>()
   const formRef = ref<InstanceType<typeof ProductionReportForm>>()
   const shifts = computed(() =>
@@ -642,6 +652,7 @@
     }
   }
   function openDetail(raw: unknown) {
+    detailTab.value = 'task'
     detailReport.value = raw as MesProductionReport
     detailDrawerRef.value?.handleOpen(detailReport.value, { title: '报工详情' })
   }

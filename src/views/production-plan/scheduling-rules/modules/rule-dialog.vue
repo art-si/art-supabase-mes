@@ -7,22 +7,12 @@
         :title="model.name || '新排产规则'"
         description="统一维护排产方向、产能约束、时间组成与冲突处理口径。"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top" />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
@@ -71,14 +61,14 @@
     conflictStrategy: 'reject',
     remark: ''
   })
-  const model = reactive(createModel())
+  const model = ref(createModel())
   const items = computed<FormItem[]>(() => [
-    { key: 'identity', label: '规则身份', type: 'divider', span: 24 },
+    { key: 'identity', label: '规则身份', type: 'tab', span: 24 },
     { key: 'code', label: '规则编码', type: 'input', props: { maxlength: 40 } },
     { key: 'name', label: '规则名称', type: 'input', props: { maxlength: 100 } },
     { key: 'enabled', label: '启用', type: 'switch' },
     { key: 'isDefault', label: '默认规则', type: 'switch' },
-    { key: 'engine', label: '排程引擎', type: 'divider', span: 24 },
+    { key: 'engine', label: '排程引擎', type: 'tab', span: 24 },
     {
       key: 'direction',
       label: '排产方向',
@@ -107,7 +97,7 @@
     { key: 'respectCalendar', label: '遵循生产日历', type: 'switch' },
     { key: 'preserveLockedTasks', label: '保留锁定任务', type: 'switch' },
     { key: 'allowOvertime', label: '允许加班产能', type: 'switch' },
-    { key: 'time', label: '时间组成与范围', type: 'divider', span: 24 },
+    { key: 'time', label: '时间组成与范围', type: 'tab', span: 24 },
     { key: 'includeSetupTime', label: '计入调机时间', type: 'switch' },
     { key: 'includeQueueTime', label: '计入排队时间', type: 'switch' },
     { key: 'includeTransferTime', label: '计入转运时间', type: 'switch' },
@@ -123,7 +113,7 @@
       type: 'number',
       props: { min: 1, max: 730, precision: 0 }
     },
-    { key: 'weight', label: '优先级权重（合计 100）', type: 'divider', span: 24 },
+    { key: 'weight', label: '优先级权重（合计 100）', type: 'tab', span: 24 },
     {
       key: 'priorityWeight',
       label: '物料/工单优先级',
@@ -157,7 +147,7 @@
 
   async function handleOpen(data: RuleDialogOpenData): Promise<void> {
     editId.value = data.row?.id || ''
-    Object.assign(model, data.row ? cloneDeep(data.row) : createModel(data.tenantId))
+    Object.assign(model.value, data.row ? cloneDeep(data.row) : createModel(data.tenantId))
     await dialogRef.value?.handleOpen(data, {
       title: data.row ? '编辑排产规则' : '新增排产规则',
       subtitle: '规则保存后可在排产工作台预演，确认后再应用。',
@@ -167,16 +157,21 @@
       onConfirm: async () => {
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
-          if (model.priorityWeight + model.dueDateWeight + model.criticalOperationWeight !== 100) {
+          if (
+            model.value.priorityWeight +
+              model.value.dueDateWeight +
+              model.value.criticalOperationWeight !==
+            100
+          ) {
             ElMessage.warning('三项优先级权重合计必须为 100')
             return false
           }
           await saveSchedulingRule(
             {
-              ...cloneDeep(model),
-              code: model.code.trim().toUpperCase(),
-              name: model.name.trim(),
-              remark: model.remark.trim()
+              ...cloneDeep(model.value),
+              code: model.value.code.trim().toUpperCase(),
+              name: model.value.name.trim(),
+              remark: model.value.remark.trim()
             },
             editId.value || undefined
           )

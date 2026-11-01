@@ -9,22 +9,18 @@
       />
       <ArtForm
         ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
+        v-model="model"
         :items="items"
         :rules="rules"
         :span="12"
         :gutter="20"
         label-position="top"
-        :show-reset="false"
-        :show-submit="false"
       />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { ElMessage } from 'element-plus'
   import { cloneDeep } from 'lodash-es'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -67,7 +63,7 @@
     departments: [],
     workCenters: []
   })
-  const model = reactive<Record<string, unknown>>({})
+  const model = ref<Record<string, unknown>>({})
   const option = (rows: Array<{ id: string; name: string; code?: string }>) =>
     rows.map((entry) => ({
       value: entry.id,
@@ -98,10 +94,10 @@
     type: 'number',
     props: { min, precision, class: '!w-full' }
   })
-  const divider = (label: string): FormItem => ({
-    key: `divider-${label}`,
+  const sectionTab = (label: string): FormItem => ({
+    key: `section-${label}`,
     label,
-    type: 'divider',
+    type: 'tab',
     span: 24
   })
   const jsonItem = (key: string, label: string): FormItem => ({
@@ -116,6 +112,7 @@
   const items = computed<FormItem[]>(() => {
     if (target.value === 'header') {
       return [
+        sectionTab('路线信息'),
         { key: 'code', label: '路线编码', props: { maxlength: 60 } },
         { key: 'name', label: '路线名称', props: { maxlength: 120 } },
         { key: 'version', label: '工艺版本', props: { maxlength: 40 } },
@@ -123,6 +120,7 @@
         { key: 'allocationMode', label: '分配模式' },
         optionalSelect('departmentId', '生产车间', references.value.departments),
         optionalSelect('productionUnitId', '生产单位', references.value.units),
+        sectionTab('批量与有效期'),
         numberItem('batchFrom', '起始批量'),
         numberItem('batchTo', '截止批量'),
         {
@@ -143,13 +141,14 @@
     }
     if (mode.value === 'bom') {
       return [
-        divider('组件信息'),
+        sectionTab('组件信息'),
         optionalSelect('componentMaterialId', '组件物料', references.value.materials),
         optionalSelect('componentTypeId', '组件类型', references.value.componentTypes),
         numberItem('sequenceNo', '组件序号', 1, 0),
         numberItem('basicQuantity', '基本数量（单台）', 0.000001),
         optionalSelect('unitId', '计量单位', references.value.units),
         numberItem('scrapRate', '损耗率 %', 0, 2),
+        sectionTab('领料与发料'),
         { key: 'mrpEnabled', label: '参与 MRP 运算', type: 'switch' },
         optionalSelect('defaultIssueWarehouseId', '默认发料仓库', references.value.warehouses),
         dictionarySelect('issueMethod', '领送料方式', 'mdmMaterialIssueMethod'),
@@ -157,6 +156,7 @@
         dictionarySelect('overIssueControlMethod', '超发控制方式', 'mdmMaterialOverIssueControl'),
         { key: 'positionNo', label: '位号', props: { maxlength: 100 } },
         { key: 'projectText', label: '项目文本', props: { maxlength: 200 } },
+        sectionTab('工序与有效期'),
         optionalSelect(
           'assignedRouteStepId',
           '分配工序',
@@ -192,7 +192,7 @@
       ]
     }
     return [
-      divider('工序与序列'),
+      sectionTab('工序与序列'),
       numberItem('sequenceNo', '工序序列', 1, 0),
       dictionarySelect('sequenceType', '序列类型', 'mdmProcessRouteSequenceType'),
       { key: 'code', label: '工序号', props: { maxlength: 40 } },
@@ -209,7 +209,7 @@
       },
       optionalSelect('unitId', '工序单位', references.value.units),
       { key: 'description', label: '工序说明', type: 'textarea', span: 24, props: { rows: 2 } },
-      divider('产能与时间'),
+      sectionTab('产能与时间'),
       numberItem('basicBatch', '基本批量', 0.000001),
       numberItem('runOutputQuantity', '单趟产出数量', 0.000001),
       numberItem('runProcessingMinutes', '单趟加工时长（分钟）'),
@@ -221,7 +221,7 @@
       numberItem('operatorCount', '操作人数', 0, 0),
       numberItem('machineCount', '设备数量', 0, 0),
       { key: 'overlapEnabled', label: '允许重叠加工', type: 'switch' },
-      divider('执行、质检与控制'),
+      sectionTab('执行、质检与控制'),
       dictionarySelect('operationMode', '工序模式', 'mdmProcessOperationMode'),
       dictionarySelect('processingMode', '加工方式', 'mdmProcessingMode'),
       dictionarySelect('reportMode', '汇报方式', 'mdmReportMode'),
@@ -235,7 +235,7 @@
       { key: 'isFirst', label: '首序', type: 'switch' },
       { key: 'isLast', label: '末序', type: 'switch' },
       { key: 'critical', label: '关键工序', type: 'switch' },
-      divider('工艺扩展参数'),
+      sectionTab('工艺扩展参数'),
       jsonItem('unitConversion', '单位换算'),
       jsonItem('activities', '作业活动'),
       jsonItem('outsourcing', '委外参数'),
@@ -367,15 +367,15 @@
       data.target === 'header'
         ? data.row.routeSnapshot
         : (data.item ?? (data.mode === 'bom' ? createBomItem() : createRouteStep()))
-    for (const key of Object.keys(model)) delete model[key]
+    for (const key of Object.keys(model.value)) delete model.value[key]
     Object.assign(
-      model,
+      model.value,
       data.target === 'item' ? (data.mode === 'bom' ? createBomItem() : createRouteStep()) : {},
       cloneDeep(initial)
     )
     if (data.target === 'item' && data.mode === 'route') {
       for (const key of jsonKeys)
-        model[`${key}Json`] = JSON.stringify(model[key] ?? jsonDefaults[key], null, 2)
+        model.value[`${key}Json`] = JSON.stringify(model.value[key] ?? jsonDefaults[key], null, 2)
     }
     await dialogRef.value?.handleOpen(data, {
       title:
@@ -406,7 +406,7 @@
         try {
           await formRef.value?.validate()
           if (!row.value) return false
-          const next = cloneDeep(model) as Record<string, unknown>
+          const next = cloneDeep(model.value) as Record<string, unknown>
           if (data.target === 'item' && data.mode === 'route') {
             for (const key of jsonKeys) {
               next[key] = JSON.parse(String(next[`${key}Json`] || 'null'))

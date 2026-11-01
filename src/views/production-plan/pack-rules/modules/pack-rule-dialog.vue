@@ -9,20 +9,16 @@
       />
       <ArtForm
         ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
+        v-model="model"
         :items="items"
         :rules="formRules"
         label-position="top"
-        :show-reset="false"
-        :show-submit="false"
       />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
@@ -64,9 +60,9 @@
     sortPriority: 'area,boardNo,width,length',
     remark: ''
   })
-  const model = reactive(initial())
+  const model = ref(initial())
   const items: FormItem[] = [
-    { key: 'identity', label: '适用成品', type: 'divider', span: 24 },
+    { key: 'identity', label: '适用成品', type: 'tab', span: 24 },
     {
       key: 'ruleCode',
       label: '板材类型',
@@ -75,7 +71,7 @@
     },
     { key: 'ruleName', label: '规则名称', type: 'input', props: { maxlength: 80 } },
     { key: 'enabled', label: '启用', type: 'switch' },
-    { key: 'limits', label: '单包约束', type: 'divider', span: 24 },
+    { key: 'limits', label: '单包约束', type: 'tab', span: 24 },
     { key: 'maxPieces', label: '最多块数', type: 'number', props: { min: 1, precision: 0 } },
     { key: 'maxStackHeight', label: '最高堆叠 mm', type: 'number', props: { min: 1 } },
     {
@@ -119,8 +115,8 @@
 
   async function handleOpen(data: OpenData): Promise<void> {
     editId.value = data.row?.id || ''
-    Object.assign(model, data.row ? cloneDeep(data.row) : initial(data.tenantId))
-    model.sameArea = true
+    Object.assign(model.value, data.row ? cloneDeep(data.row) : initial(data.tenantId))
+    model.value.sameArea = true
     await dialogRef.value?.handleOpen(data, {
       title: editId.value ? '编辑排包规则' : '新增排包规则',
       subtitle: '同一板材类型可按板厚维护多套规则；留空板厚作为通用规则。',
@@ -130,7 +126,7 @@
       onConfirm: async () => {
         try {
           if (!(await validateArtFormForSubmit(formRef.value))) return false
-          await savePackRule(cloneDeep(model), editId.value || undefined)
+          await savePackRule(cloneDeep(model.value), editId.value || undefined)
           emit('success')
           return true
         } catch (error) {

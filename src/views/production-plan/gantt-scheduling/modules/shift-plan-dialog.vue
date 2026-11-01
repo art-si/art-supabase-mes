@@ -24,8 +24,6 @@
         :items="formItems"
         :rules="form.rules"
         label-position="top"
-        :show-reset="false"
-        :show-submit="false"
       />
 
       <div class="shift-plan-dialog__balance" aria-live="polite">

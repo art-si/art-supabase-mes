@@ -191,7 +191,14 @@ export async function importWorkOrders(rows: MesWorkOrderInput[]) {
 export async function transitionWorkOrder(id: string, action: string) {
   const { data } = await responseHandle<{ status?: string; message?: string }>(
     () => supabase.rpc('mes_transition_work_order', { p_id: id, p_action: action }),
-    { ...writeOptions, requireAffected: false, message: '工单状态已更新' }
+    {
+      ...writeOptions,
+      showErrorMessage: action !== 'delete',
+      showReferenceFeedback: action !== 'delete',
+      requireAffected: false,
+      showMessage: action !== 'delete',
+      message: '工单状态已更新'
+    }
   )
   return data
 }
@@ -396,6 +403,8 @@ export async function batchTransitionWorkOrders(ids: string[], action: string) {
     () => supabase.rpc('mes_batch_transition_work_orders', { p_ids: ids, p_action: action }),
     {
       ...writeOptions,
+      showErrorMessage: action !== 'delete',
+      showReferenceFeedback: action !== 'delete',
       requireAffected: false,
       showMessage: false,
       message: ''
@@ -694,14 +703,28 @@ export async function transitionOperationTask(id: string, action: string, workCe
         p_action: action,
         p_work_center_id: workCenterId || null
       }),
-    { ...writeOptions, requireAffected: false, message: '工序任务状态已更新' }
+    {
+      ...writeOptions,
+      showErrorMessage: action !== 'delete',
+      showReferenceFeedback: action !== 'delete',
+      requireAffected: false,
+      showMessage: action !== 'delete',
+      message: '工序任务状态已更新'
+    }
   )
 }
 
 export async function batchTransitionOperationTasks(ids: string[], action: 'close' | 'delete') {
   const { data } = await responseHandle<MesBatchResult>(
     () => supabase.rpc('mes_batch_transition_operation_tasks', { p_ids: ids, p_action: action }),
-    { ...writeOptions, requireAffected: false, showMessage: false, message: '' }
+    {
+      ...writeOptions,
+      showErrorMessage: action !== 'delete',
+      showReferenceFeedback: action !== 'delete',
+      requireAffected: false,
+      showMessage: false,
+      message: ''
+    }
   )
   return data ?? { successIds: [], failures: [] }
 }

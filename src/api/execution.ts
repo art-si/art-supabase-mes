@@ -468,7 +468,13 @@ export async function saveExecutionEvent(input: {
         p_action: input.action,
         p_payload: input.payload
       }),
-    { ...writeOptions, message: '生产记录已更新' }
+    {
+      ...writeOptions,
+      showMessage: input.action !== 'delete',
+      showErrorMessage: input.action !== 'delete',
+      showReferenceFeedback: input.action !== 'delete',
+      message: '生产记录已更新'
+    }
   )
 }
 
@@ -501,6 +507,12 @@ export async function saveDefectReason(
   await responseHandle(
     () =>
       supabase.rpc('mes_save_defect_reason', { p_id: id, p_action: action, p_payload: payload }),
-    { ...writeOptions, message: '不良原因已更新' }
+    {
+      ...writeOptions,
+      showMessage: action !== 'delete',
+      showErrorMessage: action !== 'delete',
+      showReferenceFeedback: action !== 'delete',
+      message: '不良原因已更新'
+    }
   )
 }

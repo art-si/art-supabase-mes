@@ -72,17 +72,20 @@
       </ArtSectionCard>
       <RuleDialog ref="dialogRef" @success="loadRules" />
     </div>
+    <MasterDataDeleteGuard ref="deleteGuardRef" />
   </ArtPermissionGuard>
 </template>
 
 <script setup lang="ts">
+  import MasterDataDeleteGuard from '@/components/business/master-data-delete-guard/index.vue'
+  import { useRecordDeleteGuard } from '@/hooks/core/useRecordDeleteGuard'
+
   import { storeToRefs } from 'pinia'
   import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
   import ArtSectionCard from '@/components/core/surfaces/art-section-card/index.vue'
   import ArtTable from '@/components/core/tables/art-table/index.vue'
-  import { useArtFeedback } from '@/hooks/core/useArtFeedback'
   import BusinessWorkspaceHeader, {
     type BusinessWorkspaceMetric,
     type BusinessWorkspaceTag
@@ -91,6 +94,7 @@
   import type { ColumnOption } from '@/types'
   import { deleteSchedulingRule, fetchSchedulingRules, type MesSchedulingRule } from '@mes/api'
   import RuleDialog, { type RuleDialogOpenData } from './modules/rule-dialog.vue'
+  const { deleteGuardRef, deleteRecords } = useRecordDeleteGuard('mes_scheduling_rule', '排产规则')
 
   defineOptions({ name: 'MesSchedulingRule' })
   const declaredPermissions = [
@@ -101,7 +105,6 @@
   ] as const
   void declaredPermissions
   const tenantScopeStore = useTenantScopeStore()
-  const { confirmDelete } = useArtFeedback()
   const { effectiveTenantId } = storeToRefs(tenantScopeStore)
   const dialogRef = ref<{ handleOpen: (data: RuleDialogOpenData) => Promise<void> }>()
   const loading = ref(false)
@@ -178,9 +181,17 @@
     void dialogRef.value?.handleOpen({ tenantId, row })
   }
   async function removeRule(row: MesSchedulingRule): Promise<void> {
-    await confirmDelete(`确认删除排产规则“${row.name}”？`, { title: '删除排产规则' })
-    await deleteSchedulingRule(row.id)
-    await loadRules()
+    await deleteRecords({
+      resources: [{ id: String(row.id ?? ''), label: String(row.name ?? '排产规则') }],
+      permission: 'MesSchedulingRule:Delete',
+      confirmMessage: `确认删除排产规则“${row.name}”？`,
+      remove: async () => {
+        await deleteSchedulingRule(row.id)
+      },
+      onDeleted: async () => {
+        await loadRules()
+      }
+    })
   }
   watch(effectiveTenantId, loadRules, { immediate: true })
 </script>

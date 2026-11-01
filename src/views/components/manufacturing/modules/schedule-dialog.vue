@@ -1,23 +1,13 @@
 <template>
   <ArtDialog ref="dialogRef" size="sm"
-    ><ArtForm
-      ref="formRef"
-      :model-value="model"
-      @update:model-value="replaceReactiveModel(model, $event)"
-      :items="items"
-      :rules="rules"
-      label-position="top"
-      :show-reset="false"
-      :show-submit="false"
+    ><ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top"
   /></ArtDialog>
 </template>
 <script setup lang="ts">
   import { toNameCodeOption } from '@/utils/form/option'
-
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
-  import { computed, reactive, ref } from 'vue'
+  import { computed, ref } from 'vue'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
@@ -31,7 +21,7 @@
   const emit = defineEmits<{ success: [] }>()
   const dialogRef = ref<ArtDialogExpose<ScheduleDialogOpenData>>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
-  const model = reactive({
+  const model = ref({
     workCenterId: '',
     plannedDates: [] as string[]
   })
@@ -69,8 +59,8 @@
     centers.value = data.row.eligibleWorkCenterIds.length
       ? data.workCenters.filter((item) => data.row.eligibleWorkCenterIds.includes(item.id))
       : data.workCenters
-    model.workCenterId = data.row.workCenterId || ''
-    model.plannedDates = [
+    model.value.workCenterId = data.row.workCenterId || ''
+    model.value.plannedDates = [
       data.row.plannedStartDate ||
         data.row.workOrder?.plannedStartDate ||
         dayjs().format('YYYY-MM-DD'),
@@ -86,9 +76,9 @@
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           await scheduleOperationTask({
             id: data.row.id,
-            workCenterId: model.workCenterId,
-            plannedStartDate: model.plannedDates[0],
-            plannedEndDate: model.plannedDates[1]
+            workCenterId: model.value.workCenterId,
+            plannedStartDate: model.value.plannedDates[0],
+            plannedEndDate: model.value.plannedDates[1]
           })
           emit('success')
           return true

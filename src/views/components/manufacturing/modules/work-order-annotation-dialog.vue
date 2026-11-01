@@ -8,16 +8,7 @@
         :title="currentOrderNo"
         description="批注独立于工单状态维护，不会改变已确认的 BOM 与工艺路线执行基线。"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      >
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top">
         <template #urgency>
           <WorkOrderUrgencySegmented v-model="model.urgency" />
         </template>
@@ -27,7 +18,6 @@
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { normalizeNullableText } from '@/utils/form/normalize'
@@ -47,7 +37,7 @@
   const formRef = ref<InstanceType<typeof ArtForm>>()
   const currentOrderNo = ref('')
   const currentId = ref('')
-  const model = reactive<{
+  const model = ref<{
     urgency: MesWorkOrder['urgency']
     specialRequirement: string
   }>({
@@ -82,8 +72,8 @@
   const handleOpen = async (data: WorkOrderAnnotationDialogOpenData) => {
     currentId.value = data.row.id
     currentOrderNo.value = data.row.workOrderNo
-    model.urgency = data.row.urgency
-    model.specialRequirement = data.row.specialRequirement || ''
+    model.value.urgency = data.row.urgency
+    model.value.specialRequirement = data.row.specialRequirement || ''
     await dialogRef.value?.handleOpen(data, {
       title: '工单批注',
       subtitle: data.row.materialNameSnapshot,
@@ -94,8 +84,8 @@
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           await annotateWorkOrder(
             currentId.value,
-            model.urgency,
-            normalizeNullableText(model.specialRequirement)
+            model.value.urgency,
+            normalizeNullableText(model.value.specialRequirement)
           )
           emit('success')
           return true

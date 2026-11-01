@@ -7,15 +7,7 @@
         :title="task ? `${task.taskNo} · ${task.operationName}` : '工序排产'"
         :description="`待排产 ${availableQuantity} ${task?.operationUnit || ''} · ${task?.workOrder?.workOrderNo || '生产工单'}`"
       />
-      <ArtForm
-        ref="formRef"
-        v-model="form"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm ref="formRef" v-model="form" :items="items" :rules="rules" label-position="top" />
     </div>
   </ArtDialog>
 </template>

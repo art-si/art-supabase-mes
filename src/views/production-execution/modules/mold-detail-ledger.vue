@@ -168,94 +168,107 @@
               {{ detail.status === 'closed' ? '已下模' : '上模中' }}
             </ElTag>
           </div>
-          <ArtSectionTitle>关联生产任务</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border
-            ><ElDescriptionsItem label="生产工单">{{
-              detail.task?.workOrder?.workOrderNo || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="任务单号">{{
-              detail.task?.taskNo || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="工序"
-              >{{ detail.task?.operationCode }} {{ detail.task?.operationName }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="序列 / 类型"
-              >{{ detail.task?.sequenceNo ?? '—' }} /
-              {{ detail.task?.sequenceType || '—' }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="项目名称">{{
-              detail.task?.workOrder?.projectNameSnapshot || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="规格型号">{{
-              detail.task?.workOrder?.specificationSnapshot || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="工单 / 完工数"
-              >{{ detail.task?.workOrder?.orderQuantity ?? '—' }} /
-              {{ detail.task?.completedQuantity ?? '—' }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="要求完工日">{{
-              detail.task?.requiredCompletionDate || '—'
-            }}</ElDescriptionsItem>
-          </ElDescriptions>
-          <ArtSectionTitle>上模与下模</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="工作中心">{{
-              detail.workCenter?.name || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="上模时间">{{
-              formatTime(detail.occurredAt)
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="下模时间">{{
-              formatTime(detail.completedAt)
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="调模时长">{{ durationHours(detail) }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="标准调模工时">{{ setupHours(detail) }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="上模人员">{{
-              personName(String(detail.details.operatorPersonId || ''))
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="下模人员">{{
-              personName(String(detail.details.unloadPersonId || ''))
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="库位">{{
-              detail.details.location || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="下模库位">{{
-              detail.details.unloadLocation || '—'
-            }}</ElDescriptionsItem>
-          </ElDescriptions>
-          <ArtSectionTitle>模具维护</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="维修类型">{{
-              detail.details.repairType || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="维修日期">{{
-              detail.details.repairDate || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="装夹方式">{{
-              detail.details.clamping || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="关联质检批号">{{
-              detail.details.inspectionBatchNo || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="维修人员">{{
-              personName(String(detail.details.repairPersonId || ''))
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="问题描述" :span="detailColumns">{{
-              detail.details.problemDescription || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="处理记录" :span="detailColumns">{{
-              detail.details.resolution || '—'
-            }}</ElDescriptionsItem
-            ><ElDescriptionsItem label="备注" :span="detailColumns">{{
-              detail.remark || '—'
-            }}</ElDescriptionsItem></ElDescriptions
-          ><ArtSectionTitle v-if="detail.media?.length">现场附件</ArtSectionTitle>
-          <a
-            v-for="(url, index) in detail.media"
-            :key="url"
-            :href="url"
-            target="_blank"
-            rel="noopener noreferrer"
-            ><ArtSvgIcon icon="ri:attachment-2" />现场附件 {{ index + 1 }}</a
-          ></div
-        ></ArtDrawer
+          <ElTabs v-model="detailTab" class="min-w-0">
+            <ElTabPane name="task" label="关联任务" :lazy="false">
+              <ArtSectionTitle>关联生产任务</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border
+                ><ElDescriptionsItem label="生产工单">{{
+                  detail.task?.workOrder?.workOrderNo || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="任务单号">{{
+                  detail.task?.taskNo || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="工序"
+                  >{{ detail.task?.operationCode }}
+                  {{ detail.task?.operationName }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="序列 / 类型"
+                  >{{ detail.task?.sequenceNo ?? '—' }} /
+                  {{ detail.task?.sequenceType || '—' }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="项目名称">{{
+                  detail.task?.workOrder?.projectNameSnapshot || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="规格型号">{{
+                  detail.task?.workOrder?.specificationSnapshot || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="工单 / 完工数"
+                  >{{ detail.task?.workOrder?.orderQuantity ?? '—' }} /
+                  {{ detail.task?.completedQuantity ?? '—' }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="要求完工日">{{
+                  detail.task?.requiredCompletionDate || '—'
+                }}</ElDescriptionsItem>
+              </ElDescriptions>
+            </ElTabPane>
+            <ElTabPane name="mount" label="上模与下模" :lazy="false">
+              <ArtSectionTitle>上模与下模</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border>
+                <ElDescriptionsItem label="工作中心">{{
+                  detail.workCenter?.name || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="上模时间">{{
+                  formatTime(detail.occurredAt)
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="下模时间">{{
+                  formatTime(detail.completedAt)
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="调模时长">{{
+                  durationHours(detail)
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="标准调模工时">{{
+                  setupHours(detail)
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="上模人员">{{
+                  personName(String(detail.details.operatorPersonId || ''))
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="下模人员">{{
+                  personName(String(detail.details.unloadPersonId || ''))
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="库位">{{
+                  detail.details.location || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="下模库位">{{
+                  detail.details.unloadLocation || '—'
+                }}</ElDescriptionsItem>
+              </ElDescriptions>
+            </ElTabPane>
+            <ElTabPane name="maintenance" label="维护与附件" :lazy="false">
+              <ArtSectionTitle>模具维护</ArtSectionTitle>
+              <ElDescriptions :column="detailColumns" border>
+                <ElDescriptionsItem label="维修类型">{{
+                  detail.details.repairType || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="维修日期">{{
+                  detail.details.repairDate || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="装夹方式">{{
+                  detail.details.clamping || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="关联质检批号">{{
+                  detail.details.inspectionBatchNo || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="维修人员">{{
+                  personName(String(detail.details.repairPersonId || ''))
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="问题描述" :span="detailColumns">{{
+                  detail.details.problemDescription || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="处理记录" :span="detailColumns">{{
+                  detail.details.resolution || '—'
+                }}</ElDescriptionsItem
+                ><ElDescriptionsItem label="备注" :span="detailColumns">{{
+                  detail.remark || '—'
+                }}</ElDescriptionsItem></ElDescriptions
+              ><ArtSectionTitle v-if="detail.media?.length">现场附件</ArtSectionTitle>
+              <a
+                v-for="(url, index) in detail.media"
+                :key="url"
+                :href="url"
+                target="_blank"
+                rel="noopener noreferrer"
+                ><ArtSvgIcon icon="ri:attachment-2" />现场附件 {{ index + 1 }}</a
+              >
+            </ElTabPane>
+          </ElTabs>
+        </div></ArtDrawer
       >
     </div>
   </ArtPermissionGuard>
@@ -267,7 +280,7 @@
   import dayjs from 'dayjs'
   import { computed, onMounted, ref, watch } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
-  import { ElMessage } from 'element-plus'
+  import { ElMessage, ElTabs, ElTabPane } from 'element-plus'
   import ArtPermissionGuard from '@/components/core/feedback/art-permission-guard/index.vue'
   import ArtTableQuery from '@/components/core/tables/art-table-query/index.vue'
   import type { ArtTableQueryExpose } from '@/components/core/tables/art-table-query/index.vue'
@@ -366,6 +379,7 @@
   const resetting = ref(false)
   const error = ref('')
   const detail = ref<MesExecutionEvent | null>(null)
+  const detailTab = ref('task')
   const detailDrawerRef = ref<ArtDrawerExpose<MesExecutionEvent>>()
   const rowIndex = (index: number) => (page.value - 1) * size.value + index + 1
   const formatTime = createDateTimeFormatter({ format: 'YYYY-MM-DD HH:mm', emptyText: '—' })
@@ -432,6 +446,7 @@
     }
   }
   function openDetail(raw: unknown) {
+    detailTab.value = 'task'
     detail.value = raw as MesExecutionEvent
     detailDrawerRef.value?.handleOpen(detail.value, { title: '调机详情' })
   }

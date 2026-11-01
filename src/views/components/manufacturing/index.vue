@@ -153,9 +153,14 @@
       />
     </div>
   </ArtPermissionGuard>
+  <MasterDataDeleteGuard ref="workOrderDeleteGuardRef" />
+  <MasterDataDeleteGuard ref="taskDeleteGuardRef" />
 </template>
 
 <script setup lang="tsx">
+  import { useRecordDeleteGuard } from '@/hooks/core/useRecordDeleteGuard'
+  import MasterDataDeleteGuard from '@/components/business/master-data-delete-guard/index.vue'
+
   import { toTenantSelectOptions } from '@/utils/tenant-display'
   import { createDateTimeFormatter } from '@/utils/ui/format'
 
@@ -369,7 +374,19 @@
   const { effectiveTenantId, tenantOptions } = storeToRefs(tenantScopeStore)
   const { defaultWriteTenantId } = useTenantScopeFormPolicy()
   const { isCrossTenantReadOnly } = useTenantScopeAccessPolicy()
-  const { confirmAction, confirmDelete, promptReason } = useArtFeedback()
+  const { confirmAction, promptReason } = useArtFeedback()
+  const {
+    deleteGuardRef: workOrderDeleteGuardRef,
+    deleteRecords: deleteWorkOrders,
+    inspectDeleteReferences: inspectWorkOrderReferences,
+    deleteBusy: workOrderDeleteBusy
+  } = useRecordDeleteGuard('mes_work_order', '生产工单')
+  const {
+    deleteGuardRef: taskDeleteGuardRef,
+    deleteRecords: deleteTasks,
+    inspectDeleteReferences: inspectTaskReferences,
+    deleteBusy: taskDeleteBusy
+  } = useRecordDeleteGuard('mes_operation_task', '工序任务')
   const batchBusy = ref(false)
   const referenceState = reactive({
     employees: [] as MesReferenceOption[],
@@ -852,6 +869,7 @@
         {
           key: 'delete',
           type: 'delete',
+          confirm: false,
           label: '批量删除',
           permission: 'MesWorkOrder:Delete',
           hidden: isCrossTenantReadOnly.value,
@@ -894,6 +912,7 @@
       {
         key: 'delete',
         type: 'delete',
+        confirm: false,
         label: '批量删除',
         permission: 'MesOperationTask:Delete',
         hidden: isCrossTenantReadOnly.value,
@@ -1457,7 +1476,8 @@
               label: '删除',
               icon: 'ri:delete-bin-6-line',
               color: 'var(--el-color-danger)',
-              auth: 'MesWorkOrder:Delete'
+              auth: 'MesWorkOrder:Delete',
+              disabled: workOrderDeleteBusy.value
             }
           ])
     ]
@@ -1506,7 +1526,8 @@
         label: '删除',
         icon: 'ri:delete-bin-6-line',
         color: 'var(--el-color-danger)',
-        auth: 'MesOperationTask:Delete'
+        auth: 'MesOperationTask:Delete',
+        disabled: taskDeleteBusy.value
       }
     ]
   }
@@ -1726,8 +1747,72 @@
     }
   }
   let dueDateClearSelection: (() => void) | undefined
+  async function removeWorkOrders(rows: MesWorkOrder[]): Promise<void> {
+    let result: MesBatchResult | undefined
+    const resources = rows.map((row) => ({ id: row.id, label: row.workOrderNo }))
+    await deleteWorkOrders({
+      resources,
+      permission: 'MesWorkOrder:Delete',
+      confirmMessage:
+        rows.length === 1
+          ? `确定删除工单“${rows[0]!.workOrderNo}”吗？30 天内可恢复。`
+          : `确定删除选中的 ${rows.length} 张工单吗？30 天内可恢复。`,
+      remove: async () => {
+        if (rows.length === 1) {
+          await transitionWorkOrder(rows[0]!.id, 'delete')
+          return
+        }
+        result = await batchTransitionWorkOrders(
+          rows.map((row) => row.id),
+          'delete'
+        )
+        const failed = resources.filter((row) =>
+          result!.failures.some((failure) => failure.id === row.id)
+        )
+        if (failed.length) await inspectWorkOrderReferences(failed)
+      },
+      onDeleted: async () => {
+        if (result) notifyBatchResult(result, '批量删除')
+        else ElMessage.success('工单已移入回收站')
+        tableRef.value?.clearSelection()
+        await tableRef.value?.refreshRemove()
+      }
+    })
+  }
+  async function removeTasks(rows: MesOperationTask[]): Promise<void> {
+    let result: MesBatchResult | undefined
+    const resources = rows.map((row) => ({
+      id: row.id,
+      label: `${row.taskNo} · ${row.operationName}`
+    }))
+    await deleteTasks({
+      resources,
+      permission: 'MesOperationTask:Delete',
+      remove: async () => {
+        if (rows.length === 1) {
+          await transitionOperationTask(rows[0]!.id, 'delete')
+          return
+        }
+        result = await batchTransitionOperationTasks(
+          rows.map((row) => row.id),
+          'delete'
+        )
+        const failed = resources.filter((row) =>
+          result!.failures.some((failure) => failure.id === row.id)
+        )
+        if (failed.length) await inspectTaskReferences(failed)
+      },
+      onDeleted: async () => {
+        if (result) notifyBatchResult(result, '批量删除', '条任务')
+        else ElMessage.success('工序任务已删除')
+        tableRef.value?.clearSelection()
+        await tableRef.value?.refreshRemove()
+      }
+    })
+  }
   async function handleBatchCommand(command: string, rows: MesWorkOrder[]): Promise<void> {
     if (!rows.length) return
+    if (command === 'delete') return removeWorkOrders(rows)
     batchBusy.value = true
     try {
       if (command === 'print') {
@@ -1755,7 +1840,6 @@
       }
       tableRef.value?.clearSelection()
       if (command === 'reference') await tableRef.value?.refreshCreate()
-      else if (command === 'delete') await tableRef.value?.refreshRemove()
       else await tableRef.value?.refreshData()
     } finally {
       batchBusy.value = false
@@ -1781,7 +1865,8 @@
     rows: MesOperationTask[],
     action: 'close' | 'delete'
   ): Promise<void> {
-    const title = action === 'close' ? '批量结案' : '批量删除'
+    if (action === 'delete') return removeTasks(rows)
+    const title = '批量结案'
     batchBusy.value = true
     try {
       const result = await batchTransitionOperationTasks(
@@ -1790,8 +1875,7 @@
       )
       notifyBatchResult(result, title, '条任务')
       tableRef.value?.clearSelection()
-      if (action === 'delete') await tableRef.value?.refreshRemove()
-      else await tableRef.value?.refreshData()
+      await tableRef.value?.refreshData()
     } finally {
       batchBusy.value = false
     }
@@ -1855,8 +1939,7 @@
       await tableRef.value?.refreshData()
       return
     }
-    if (action === 'delete')
-      await confirmDelete(`确定删除工单“${row.workOrderNo}”吗？30 天内可恢复。`)
+    if (action === 'delete') return removeWorkOrders([row])
     if (action === 'confirm' && !(await confirmRelease([row]))) return
     await transitionWorkOrder(row.id, action)
     await tableRef.value?.refreshData()
@@ -1870,7 +1953,7 @@
       await openTaskDueDate([row])
       return
     }
-    if (action === 'delete') await confirmDelete(`确定删除工序任务“${row.operationName}”吗？`)
+    if (action === 'delete') return removeTasks([row])
     if (action === 'close')
       await confirmAction(`确定将工序任务“${row.operationName}”结案吗？`, '工序任务结案', {
         confirmButtonText: '确认结案'

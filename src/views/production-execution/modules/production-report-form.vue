@@ -41,221 +41,246 @@
       />
       <ArtForm
         ref="formRef"
-        :model-value="form"
-        @update:model-value="replaceReactiveModel(form, $event)"
+        v-model:active-tab="activeTab"
+        v-model="form"
         :items="[]"
         :rules="formRules"
         :validate-on-rule-change="false"
         custom-layout
         scroll-to-error
-        :show-reset="false"
-        :show-submit="false"
         root-class="p-0! md:p-0!"
       >
-        <ArtSectionTitle>产量与班次</ArtSectionTitle>
-        <div class="report-form__grid">
-          <ElFormItem
-            label="实际机台"
-            prop="equipmentId"
-            :required="!editingReport && !task?.equipmentLocked && equipmentOptions.length > 0"
-          >
-            <ElSelect
-              v-model="form.equipmentId"
-              filterable
-              clearable
-              :disabled="
-                Boolean(task?.equipmentLocked) || Boolean(editingReport) || !equipmentOptions.length
-              "
-              :loading="equipmentLoading"
-              :placeholder="
-                equipmentOptions.length ? '选择实际加工机台' : '当前工作中心未配置可用机台'
-              "
-            >
-              <ElOption
-                v-for="equipment in equipmentOptions"
-                :key="equipment.id"
-                :value="equipment.id"
-                :label="`${equipment.equipmentCode} · ${equipment.equipmentName}`"
-              />
-            </ElSelect>
-            <p v-if="editingReport && !editingReport.equipmentId" class="report-form__field-hint">
-              该历史报工未记录机台。
-            </p>
-            <p
-              v-else-if="task?.equipmentLocked && !task.equipmentId"
-              class="report-form__field-hint"
-            >
-              此任务首次报工时未配置机台，后续报工保持“未分配机台”。
-            </p>
-            <p
-              v-else-if="equipmentLoaded && !equipmentOptions.length"
-              class="report-form__field-hint"
-            >
-              报工可继续提交，机台统计将归入“未分配机台”。
-            </p>
-            <p v-else-if="task?.equipmentId" class="report-form__field-hint">
-              此工序任务已固定机台，后续报工沿用该设备。
-            </p>
-          </ElFormItem>
-          <ElFormItem label="良品数量" prop="goodQuantity" required
-            ><ElInputNumber
-              v-model="form.goodQuantity"
-              :min="0"
-              :max="remainingQuantity"
-              :precision="0"
-              controls-position="right"
-          /></ElFormItem>
-          <ElFormItem label="班次" prop="shiftName" required>
-            <div class="report-form__shift-field">
-              <span class="report-form__field-hint">
-                {{
-                  editingReport
-                    ? '原报工班次（历史记录）'
-                    : `工序要求开工日期 ${task?.requiredStartDate || '未设置'} 的工厂日历班次`
-                }}
-              </span>
-              <span v-if="editingReport" class="report-form__shift-history">
-                {{ form.shiftName || '未记录班次' }}
-              </span>
-              <ArtAsyncState
-                v-else-if="shiftLoading"
-                :loading="shiftLoading"
-                :min-height="96"
-                size="compact"
-              />
-              <div v-else-if="shiftError" class="report-form__shift-feedback" role="alert">
-                <span>{{ shiftError }}</span>
-                <ElButton link type="primary" @click="retryShifts">重试</ElButton>
-              </div>
-              <div
-                v-else-if="!calendarShifts.length"
-                class="report-form__shift-feedback"
-                role="status"
-              >
-                该日期未配置生产班次，请先在工厂日历配置后重试。
-                <ElButton link type="primary" @click="retryShifts">重新读取</ElButton>
-              </div>
-              <ElRadioGroup v-else v-model="form.shiftName" class="report-form__shift-options">
-                <ElRadioButton
-                  v-for="shift in calendarShifts"
-                  :key="`${shift.name}-${shift.startTime}-${shift.endTime}`"
-                  :value="shift.name"
+        <ElTabs v-model="activeTab" class="min-w-0">
+          <ElTabPane name="quantity" label="产量与班次" :lazy="false">
+            <div data-art-form-tab="quantity">
+              <ArtSectionTitle>产量与班次</ArtSectionTitle>
+              <div class="report-form__grid">
+                <ElFormItem
+                  label="实际机台"
+                  prop="equipmentId"
+                  :required="
+                    !editingReport && !task?.equipmentLocked && equipmentOptions.length > 0
+                  "
                 >
-                  <span class="report-form__shift-option">
-                    <ArtSvgIcon v-if="form.shiftName === shift.name" icon="ri:check-line" />
-                    {{ shift.name }} {{ shift.startTime }}—{{ shift.endTime }}
-                  </span>
-                </ElRadioButton>
-              </ElRadioGroup>
-            </div>
-          </ElFormItem>
-          <ElFormItem label="加工不良数" prop="processBadQuantity" required
-            ><ElInputNumber
-              v-model="form.processBadQuantity"
-              :min="0"
-              :precision="0"
-              controls-position="right"
-          /></ElFormItem>
-          <ElFormItem label="来料不良数" prop="materialBadQuantity" required
-            ><ElInputNumber
-              v-model="form.materialBadQuantity"
-              :min="0"
-              :precision="0"
-              controls-position="right"
-          /></ElFormItem>
-          <ElFormItem label="操作人员" class="report-form__wide">
-            <ArtUserSelect
-              v-model="form.operatorPersonIds"
-              :options="userOptions"
-              multiple
-              placeholder="选择参与该任务的人员"
-            />
-          </ElFormItem>
-        </div>
-        <template v-if="badQuantity">
-          <ArtSectionTitle>不良原因明细</ArtSectionTitle>
-          <ElFormItem prop="defects" class="report-form__defects-field">
-            <div class="report-form__defects-content">
-              <p class="report-form__hint"
-                >加工不良与来料不良的原因数量需分别等于上方的不良数量。</p
-              >
-              <div v-for="(line, index) in form.defects" :key="index" class="report-form__defect">
-                <ElSelect v-model="line.reasonId" filterable placeholder="选择不良原因">
-                  <ElOption
-                    v-for="reason in enabledReasons"
-                    :key="reason.id"
-                    :value="reason.id"
-                    :label="`${reason.category === 'process' ? '加工' : '来料'} · ${reason.code} ${reason.name}`"
+                  <ElSelect
+                    v-model="form.equipmentId"
+                    filterable
+                    clearable
+                    :disabled="
+                      Boolean(task?.equipmentLocked) ||
+                      Boolean(editingReport) ||
+                      !equipmentOptions.length
+                    "
+                    :loading="equipmentLoading"
+                    :placeholder="
+                      equipmentOptions.length ? '选择实际加工机台' : '当前工作中心未配置可用机台'
+                    "
+                  >
+                    <ElOption
+                      v-for="equipment in equipmentOptions"
+                      :key="equipment.id"
+                      :value="equipment.id"
+                      :label="`${equipment.equipmentCode} · ${equipment.equipmentName}`"
+                    />
+                  </ElSelect>
+                  <p
+                    v-if="editingReport && !editingReport.equipmentId"
+                    class="report-form__field-hint"
+                  >
+                    该历史报工未记录机台。
+                  </p>
+                  <p
+                    v-else-if="task?.equipmentLocked && !task.equipmentId"
+                    class="report-form__field-hint"
+                  >
+                    此任务首次报工时未配置机台，后续报工保持“未分配机台”。
+                  </p>
+                  <p
+                    v-else-if="equipmentLoaded && !equipmentOptions.length"
+                    class="report-form__field-hint"
+                  >
+                    报工可继续提交，机台统计将归入“未分配机台”。
+                  </p>
+                  <p v-else-if="task?.equipmentId" class="report-form__field-hint">
+                    此工序任务已固定机台，后续报工沿用该设备。
+                  </p>
+                </ElFormItem>
+                <ElFormItem label="良品数量" prop="goodQuantity" required
+                  ><ElInputNumber
+                    v-model="form.goodQuantity"
+                    :min="0"
+                    :max="remainingQuantity"
+                    :precision="0"
+                    controls-position="right"
+                /></ElFormItem>
+                <ElFormItem label="班次" prop="shiftName" required>
+                  <div class="report-form__shift-field">
+                    <span class="report-form__field-hint">
+                      {{
+                        editingReport
+                          ? '原报工班次（历史记录）'
+                          : `工序要求开工日期 ${task?.requiredStartDate || '未设置'} 的工厂日历班次`
+                      }}
+                    </span>
+                    <span v-if="editingReport" class="report-form__shift-history">
+                      {{ form.shiftName || '未记录班次' }}
+                    </span>
+                    <ArtAsyncState
+                      v-else-if="shiftLoading"
+                      :loading="shiftLoading"
+                      :min-height="96"
+                      size="compact"
+                    />
+                    <div v-else-if="shiftError" class="report-form__shift-feedback" role="alert">
+                      <span>{{ shiftError }}</span>
+                      <ElButton link type="primary" @click="retryShifts">重试</ElButton>
+                    </div>
+                    <div
+                      v-else-if="!calendarShifts.length"
+                      class="report-form__shift-feedback"
+                      role="status"
+                    >
+                      该日期未配置生产班次，请先在工厂日历配置后重试。
+                      <ElButton link type="primary" @click="retryShifts">重新读取</ElButton>
+                    </div>
+                    <ElRadioGroup
+                      v-else
+                      v-model="form.shiftName"
+                      class="report-form__shift-options"
+                    >
+                      <ElRadioButton
+                        v-for="shift in calendarShifts"
+                        :key="`${shift.name}-${shift.startTime}-${shift.endTime}`"
+                        :value="shift.name"
+                      >
+                        <span class="report-form__shift-option">
+                          <ArtSvgIcon v-if="form.shiftName === shift.name" icon="ri:check-line" />
+                          {{ shift.name }} {{ shift.startTime }}—{{ shift.endTime }}
+                        </span>
+                      </ElRadioButton>
+                    </ElRadioGroup>
+                  </div>
+                </ElFormItem>
+                <ElFormItem label="加工不良数" prop="processBadQuantity" required
+                  ><ElInputNumber
+                    v-model="form.processBadQuantity"
+                    :min="0"
+                    :precision="0"
+                    controls-position="right"
+                /></ElFormItem>
+                <ElFormItem label="来料不良数" prop="materialBadQuantity" required
+                  ><ElInputNumber
+                    v-model="form.materialBadQuantity"
+                    :min="0"
+                    :precision="0"
+                    controls-position="right"
+                /></ElFormItem>
+                <ElFormItem label="操作人员" class="report-form__wide">
+                  <ArtUserSelect
+                    v-model="form.operatorPersonIds"
+                    :options="userOptions"
+                    multiple
+                    placeholder="选择参与该任务的人员"
                   />
-                </ElSelect>
-                <ElInputNumber
-                  v-model="line.quantity"
-                  :min="1"
-                  :precision="0"
-                  controls-position="right"
-                />
-                <ElInput v-model="line.remark" placeholder="补充说明" />
-                <ElButton type="danger" link @click="form.defects.splice(index, 1)">移除</ElButton>
+                </ElFormItem>
               </div>
-              <ElButton plain @click="addDefect"
-                ><ArtSvgIcon icon="ri:add-line" />添加原因</ElButton
-              >
+              <template v-if="badQuantity">
+                <ArtSectionTitle>不良原因明细</ArtSectionTitle>
+                <ElFormItem prop="defects" class="report-form__defects-field">
+                  <div class="report-form__defects-content">
+                    <p class="report-form__hint"
+                      >加工不良与来料不良的原因数量需分别等于上方的不良数量。</p
+                    >
+                    <div
+                      v-for="(line, index) in form.defects"
+                      :key="index"
+                      class="report-form__defect"
+                    >
+                      <ElSelect v-model="line.reasonId" filterable placeholder="选择不良原因">
+                        <ElOption
+                          v-for="reason in enabledReasons"
+                          :key="reason.id"
+                          :value="reason.id"
+                          :label="`${reason.category === 'process' ? '加工' : '来料'} · ${reason.code} ${reason.name}`"
+                        />
+                      </ElSelect>
+                      <ElInputNumber
+                        v-model="line.quantity"
+                        :min="1"
+                        :precision="0"
+                        controls-position="right"
+                      />
+                      <ElInput v-model="line.remark" placeholder="补充说明" />
+                      <ElButton type="danger" link @click="form.defects.splice(index, 1)"
+                        >移除</ElButton
+                      >
+                    </div>
+                    <ElButton plain @click="addDefect"
+                      ><ArtSvgIcon icon="ri:add-line" />添加原因</ElButton
+                    >
+                  </div>
+                </ElFormItem>
+              </template>
             </div>
-          </ElFormItem>
-        </template>
-        <ArtSectionTitle>工时与说明</ArtSectionTitle>
-        <div class="report-form__grid">
-          <ElFormItem label="补偿工时（h）" prop="compensationHours"
-            ><ElInputNumber
-              v-model="form.compensationHours"
-              :min="0"
-              :precision="2"
-              controls-position="right"
-          /></ElFormItem>
-          <ElFormItem
-            label="补偿原因"
-            prop="compensationReason"
-            :required="form.compensationHours > 0"
-            ><ElInput
-              v-model="form.compensationReason"
-              maxlength="200"
-              placeholder="有补偿工时时必填"
-          /></ElFormItem>
-          <ElFormItem label="奖惩工时（h）" prop="rewardPenaltyHours"
-            ><ElInputNumber
-              v-model="form.rewardPenaltyHours"
-              :precision="2"
-              controls-position="right"
-          /></ElFormItem>
-          <ElFormItem
-            label="奖惩原因"
-            prop="rewardPenaltyReason"
-            :required="form.rewardPenaltyHours !== 0"
-            ><ElInput
-              v-model="form.rewardPenaltyReason"
-              maxlength="200"
-              placeholder="有奖惩工时时必填"
-          /></ElFormItem>
-          <ElFormItem label="报工备注" class="report-form__wide"
-            ><ElInput
-              v-model="form.remark"
-              type="textarea"
-              :rows="3"
-              maxlength="500"
-              show-word-limit
-          /></ElFormItem>
-          <ElFormItem v-if="!editingReport" label="现场附件" class="report-form__wide">
-            <ArtUploadFile
-              v-model="form.media"
-              :resource-tenant-id="task?.tenantId || ''"
-              :disabled="!task?.tenantId"
-              multiple
-              :limit="10"
-              title="上传报工附件"
-              tip="照片、视频或相关文档将随报工保存。"
-            />
-          </ElFormItem>
-        </div>
+          </ElTabPane>
+          <ElTabPane name="hours" label="工时与附件" :lazy="false">
+            <div data-art-form-tab="hours">
+              <ArtSectionTitle>工时与说明</ArtSectionTitle>
+              <div class="report-form__grid">
+                <ElFormItem label="补偿工时（h）" prop="compensationHours"
+                  ><ElInputNumber
+                    v-model="form.compensationHours"
+                    :min="0"
+                    :precision="2"
+                    controls-position="right"
+                /></ElFormItem>
+                <ElFormItem
+                  label="补偿原因"
+                  prop="compensationReason"
+                  :required="form.compensationHours > 0"
+                  ><ElInput
+                    v-model="form.compensationReason"
+                    maxlength="200"
+                    placeholder="有补偿工时时必填"
+                /></ElFormItem>
+                <ElFormItem label="奖惩工时（h）" prop="rewardPenaltyHours"
+                  ><ElInputNumber
+                    v-model="form.rewardPenaltyHours"
+                    :precision="2"
+                    controls-position="right"
+                /></ElFormItem>
+                <ElFormItem
+                  label="奖惩原因"
+                  prop="rewardPenaltyReason"
+                  :required="form.rewardPenaltyHours !== 0"
+                  ><ElInput
+                    v-model="form.rewardPenaltyReason"
+                    maxlength="200"
+                    placeholder="有奖惩工时时必填"
+                /></ElFormItem>
+                <ElFormItem label="报工备注" class="report-form__wide"
+                  ><ElInput
+                    v-model="form.remark"
+                    type="textarea"
+                    :rows="3"
+                    maxlength="500"
+                    show-word-limit
+                /></ElFormItem>
+                <ElFormItem v-if="!editingReport" label="现场附件" class="report-form__wide">
+                  <ArtUploadFile
+                    v-model="form.media"
+                    :resource-tenant-id="task?.tenantId || ''"
+                    :disabled="!task?.tenantId"
+                    multiple
+                    :limit="10"
+                    title="上传报工附件"
+                    tip="照片、视频或相关文档将随报工保存。"
+                  />
+                </ElFormItem>
+              </div>
+            </div>
+          </ElTabPane>
+        </ElTabs>
       </ArtForm>
     </div>
   </ArtDialog>
@@ -264,9 +289,8 @@
 <script setup lang="ts">
   import { executionRouteStep } from './execution-task-rules'
   import ArtAsyncState from '@/components/core/feedback/art-async-state/index.vue'
-  import { replaceReactiveModel } from '@/utils/form/model'
-  import { computed, nextTick, reactive, ref } from 'vue'
-  import { ElMessage, type FormRules } from 'element-plus'
+  import { computed, nextTick, ref } from 'vue'
+  import { ElMessage, ElTabs, ElTabPane, type FormRules } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
   import ArtForm from '@/components/core/forms/art-form/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
@@ -294,6 +318,7 @@
   const emit = defineEmits<{ saved: [] }>()
   const dialogRef = ref<ArtDialogExpose>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
+  const activeTab = ref('quantity')
   const task = ref<MesExecutionTask | null>(null)
   const reportStep = computed(() => (task.value ? executionRouteStep(task.value) : undefined))
   const reportControlCode = computed(
@@ -310,7 +335,7 @@
   const shiftLoading = ref(false)
   const shiftError = ref('')
   let shiftRequest = 0
-  const form = reactive<MesReportInput>({
+  const form = ref<MesReportInput>({
     equipmentId: null,
     goodQuantity: 0,
     processBadQuantity: 0,
@@ -331,7 +356,7 @@
       Number(task.value?.plannedQuantity || 0) - Number(task.value?.completedQuantity || 0)
     )
   )
-  const badQuantity = computed(() => form.processBadQuantity + form.materialBadQuantity)
+  const badQuantity = computed(() => form.value.processBadQuantity + form.value.materialBadQuantity)
   const enabledReasons = computed(() => reasons.value.filter((item) => item.enabled))
   const formRules = computed<FormRules>(() => ({
     ...(!editingReport.value && !task.value?.equipmentLocked && equipmentOptions.value.length
@@ -340,10 +365,10 @@
     goodQuantity: [
       {
         validator: (_rule, _value, callback) => {
-          if (form.goodQuantity < 0) callback(new Error('良品数量不能小于零'))
-          else if (form.goodQuantity <= 0 && badQuantity.value <= 0)
+          if (form.value.goodQuantity < 0) callback(new Error('良品数量不能小于零'))
+          else if (form.value.goodQuantity <= 0 && badQuantity.value <= 0)
             callback(new Error('请填写良品或不良数量'))
-          else if (!editingReport.value && form.goodQuantity > remainingQuantity.value)
+          else if (!editingReport.value && form.value.goodQuantity > remainingQuantity.value)
             callback(new Error('良品数量超过任务剩余数量'))
           else callback()
         },
@@ -357,14 +382,14 @@
     materialBadQuantity: [
       { type: 'number', min: 0, message: '来料不良数不能小于零', trigger: 'change' }
     ],
-    ...(form.compensationHours > 0
+    ...(form.value.compensationHours > 0
       ? {
           compensationReason: [
             { required: true, whitespace: true, message: '请填写补偿原因', trigger: 'blur' }
           ]
         }
       : {}),
-    ...(form.rewardPenaltyHours !== 0
+    ...(form.value.rewardPenaltyHours !== 0
       ? {
           rewardPenaltyReason: [
             { required: true, whitespace: true, message: '请填写奖惩原因', trigger: 'blur' }
@@ -376,15 +401,15 @@
         validator: (_rule, _value, callback) => {
           if (!badQuantity.value) return callback()
           const sums = { process: 0, material: 0 }
-          for (const line of form.defects) {
+          for (const line of form.value.defects) {
             const reason = reasons.value.find((item) => item.id === line.reasonId)
             if (!reason || !reason.enabled || line.quantity <= 0)
               return callback(new Error('请检查不良原因和数量'))
             sums[reason.category] += line.quantity
           }
           if (
-            sums.process !== form.processBadQuantity ||
-            sums.material !== form.materialBadQuantity
+            sums.process !== form.value.processBadQuantity ||
+            sums.material !== form.value.materialBadQuantity
           ) {
             callback(new Error('不良原因数量与加工、来料不良数量不一致'))
           } else {
@@ -397,7 +422,7 @@
   }))
 
   function addDefect() {
-    form.defects.push({ reasonId: '', quantity: 1, remark: '' })
+    form.value.defects.push({ reasonId: '', quantity: 1, remark: '' })
   }
   async function confirm() {
     if (!task.value?.workCenterId) {
@@ -414,7 +439,7 @@
     }
     if (
       !editingReport.value &&
-      !calendarShifts.value.some((shift) => shift.name === form.shiftName)
+      !calendarShifts.value.some((shift) => shift.name === form.value.shiftName)
     ) {
       ElMessage.warning('请先读取工厂日历并选择班次')
       return false
@@ -426,7 +451,7 @@
       return false
     }
     try {
-      const payload = { ...form, defects: form.defects.map((item) => ({ ...item })) }
+      const payload = { ...form.value, defects: form.value.defects.map((item) => ({ ...item })) }
       if (editingReport.value)
         await reviewProductionReport(
           editingReport.value.id,
@@ -446,7 +471,7 @@
     calendarShifts.value = []
     shiftError.value = ''
     if (!nextTask.requiredStartDate || !nextTask.workCenter?.departmentId) {
-      form.shiftName = ''
+      form.value.shiftName = ''
       shiftError.value = '工序缺少要求开工日期或工作中心所属生产组织，无法读取班次。'
       return
     }
@@ -462,10 +487,10 @@
       const scheduledShift = nextTask.allocations?.find((item) =>
         shifts.some((shift) => shift.name === item.shiftNameSnapshot)
       )?.shiftNameSnapshot
-      form.shiftName = scheduledShift || shifts[0]?.name || ''
+      form.value.shiftName = scheduledShift || shifts[0]?.name || ''
     } catch {
       if (request !== shiftRequest) return
-      form.shiftName = ''
+      form.value.shiftName = ''
       shiftError.value = '工厂日历班次加载失败，请重试。'
     } finally {
       if (request === shiftRequest) shiftLoading.value = false
@@ -479,6 +504,7 @@
     personnel: MesExecutionPerson[],
     report?: MesProductionReport
   ) {
+    activeTab.value = 'quantity'
     shiftRequest += 1
     task.value = nextTask
     editingReport.value = report || null
@@ -489,7 +515,7 @@
     calendarShifts.value = []
     shiftError.value = ''
     shiftLoading.value = false
-    Object.assign(form, {
+    Object.assign(form.value, {
       equipmentId: report ? report.equipmentId : nextTask.equipmentId,
       goodQuantity: report?.goodQuantity || 0,
       processBadQuantity: report?.processBadQuantity || 0,

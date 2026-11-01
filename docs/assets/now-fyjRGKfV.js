@@ -1,0 +1,1 @@
+import{K as e}from"./_baseIsEqual-DP7qGNZ6.js";var t=function(){return e.Date.now()};export{t};

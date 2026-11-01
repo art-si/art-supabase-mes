@@ -207,8 +207,6 @@
           :rules="formRules"
           :validate-on-rule-change="false"
           :span="12"
-          :show-reset="false"
-          :show-submit="false"
           root-class="p-0! md:p-0!"
         />
       </ArtDialog>
@@ -256,12 +254,17 @@
         ></ArtDrawer
       >
     </div>
+    <MasterDataDeleteGuard ref="deleteGuardRef" />
   </ArtPermissionGuard>
 </template>
 
 <script setup lang="ts">
+  import MasterDataDeleteGuard from '@/components/business/master-data-delete-guard/index.vue'
+  import { useRecordDeleteGuard } from '@/hooks/core/useRecordDeleteGuard'
+
   import './production-detail-intro.scss'
   import { toNameCodeOption } from '@/utils/form/option'
+  import TreeUtils from '@/utils/tree'
 
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
@@ -287,7 +290,7 @@
   import BusinessTableRowActions from '@/components/business/business-table-row-actions/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
-  import { notifyFriendlyError, useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { exportExcel } from '@/utils/file'
   import {
@@ -301,6 +304,7 @@
     type MesReportDefect
   } from '@mes/api'
   import { useExecutionScope } from './use-execution-scope'
+  const { deleteGuardRef, deleteRecords } = useRecordDeleteGuard('mes_defect_reason', '不良原因')
 
   const commonEnabledStatusOptions = useDictionaryOptions(
     'commonEnabledStatus',
@@ -313,7 +317,6 @@
   const props = withDefaults(defineProps<{ initialTab?: 'reasons' | 'details' }>(), {
     initialTab: 'reasons'
   })
-  const { confirmDelete } = useArtFeedback()
   const {
     scope,
     effectiveTenantId,
@@ -416,6 +419,10 @@
     code: [{ required: true, whitespace: true, message: '请填写原因代码', trigger: 'blur' }],
     name: [{ required: true, whitespace: true, message: '请填写不良原因', trigger: 'blur' }]
   }
+  const departmentTree = new TreeUtils({ parentKey: 'parentId' })
+  const departmentOptions = computed(() =>
+    departmentTree.mapTree(departmentTree.listToTree(scope.departments), toNameCodeOption)
+  )
   const formItems = computed<FormItem[]>(() => [
     {
       key: 'category',
@@ -428,12 +435,13 @@
     {
       key: 'departmentId',
       label: '所属车间 / 产线',
-      type: 'select',
+      type: 'treeSelect',
       props: {
         clearable: true,
         filterable: true,
         placeholder: '全部车间通用',
-        options: scope.departments.map(toNameCodeOption)
+        checkStrictly: true,
+        data: departmentOptions.value
       }
     },
     { key: 'code', label: '原因代码', type: 'input', props: { maxlength: 40 } },
@@ -572,15 +580,18 @@
   }
   async function removeReason(raw: unknown) {
     const row = raw as MesDefectReason
-    try {
-      await confirmDelete(`确定删除不良原因“${row.name}”？已有报工引用的原因只能停用。`, {
-        title: '删除不良原因'
-      })
-      await saveDefectReason(row.id, 'delete', {})
-      await reload()
-    } catch {
-      /* cancel or shared API error */
-    }
+
+    await deleteRecords({
+      resources: [{ id: String(row.id ?? ''), label: String(row.name ?? '不良原因') }],
+      permission: 'MesDefectManagement:DeleteReason',
+      confirmMessage: `确定删除不良原因“${row.name}”？已有报工引用的原因只能停用。`,
+      remove: async () => {
+        await saveDefectReason(row.id, 'delete', {})
+      },
+      onDeleted: async () => {
+        await reload()
+      }
+    })
   }
   function openDetail(raw: unknown) {
     detailRow.value = raw as DefectRow

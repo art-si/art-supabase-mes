@@ -1,0 +1,1 @@
+import{bt as e,ln as t}from"./dist-DOTv3Dg2.js";function n(n){let r=t(),i;return{component:r,load:async()=>{if(!r.value){i??(i=n().then(({default:e})=>{r.value=e}));try{await i}finally{i=void 0}}await e()}}}export{n as t};

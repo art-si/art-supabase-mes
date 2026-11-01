@@ -9,14 +9,7 @@
         </div>
       </div>
 
-      <ArtForm
-        v-model="formData"
-        :items="formItems"
-        :span="24"
-        :show-reset="false"
-        :show-submit="false"
-        label-position="top"
-      />
+      <ArtForm v-model="formData" :items="formItems" :span="24" label-position="top" />
     </div>
   </ArtDrawer>
 </template>

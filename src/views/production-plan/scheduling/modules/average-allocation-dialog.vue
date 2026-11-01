@@ -14,8 +14,6 @@
         :items="formItems"
         :rules="rules"
         label-position="top"
-        :show-reset="false"
-        :show-submit="false"
       />
 
       <div class="allocation-dialog__toolbar">

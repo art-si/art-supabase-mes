@@ -8,22 +8,12 @@
         :title="taskTitle"
         :description="description"
       />
-      <ArtForm
-        ref="formRef"
-        :model-value="model"
-        @update:model-value="replaceReactiveModel(model, $event)"
-        :items="items"
-        :rules="rules"
-        label-position="top"
-        :show-reset="false"
-        :show-submit="false"
-      />
+      <ArtForm ref="formRef" v-model="model" :items="items" :rules="rules" label-position="top" />
     </div>
   </ArtDialog>
 </template>
 
 <script setup lang="ts">
-  import { replaceReactiveModel } from '@/utils/form/model'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -49,7 +39,7 @@
     }
     return `将统一调整 ${rows.length} 条工序任务的要求完工日期；已关闭任务会在处理结果中说明。`
   })
-  const model = reactive({ requiredCompletionDate: '' })
+  const model = ref({ requiredCompletionDate: '' })
   const items: FormItem[] = [
     {
       key: 'requiredCompletionDate',
@@ -76,7 +66,7 @@
     taskTitle.value =
       data.rows.length === 1 ? data.rows[0]?.operationName || '工序任务' : '批量维护要求完工日期'
     const firstDate = data.rows[0]?.requiredCompletionDate || ''
-    model.requiredCompletionDate = data.rows.every(
+    model.value.requiredCompletionDate = data.rows.every(
       (row) => (row.requiredCompletionDate || '') === firstDate
     )
       ? firstDate
@@ -94,7 +84,7 @@
           if (!(await validateArtFormForSubmit(formRef.value))) return false
           const result = await updateOperationTaskDueDates(
             selectedIds.value,
-            model.requiredCompletionDate
+            model.value.requiredCompletionDate
           )
           emit('success', result)
           return true
