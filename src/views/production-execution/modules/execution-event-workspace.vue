@@ -1,4 +1,55 @@
 <template>
+  <DefineEventOverview>
+    <template v-if="detailEvent">
+      <ArtSectionTitle v-if="!detailUsesTabs">记录概况</ArtSectionTitle>
+      <ElDescriptions :column="detailColumns" border>
+        <ElDescriptionsItem label="发生时间">{{
+          formatDateTime(detailEvent.occurredAt)
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="发起人">{{ detailEvent.actorName || '—' }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="处理人">{{
+          detailEvent.handler?.name || '—'
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="响应时间">{{
+          formatDateTime(detailEvent.respondedAt)
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="结束时间">{{
+          formatDateTime(detailEvent.completedAt)
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="数量">{{ detailEvent.quantity }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="工作中心">{{
+          detailEvent.workCenter?.name || '—'
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="备注" :span="detailColumns">{{
+          detailEvent.remark || '—'
+        }}</ElDescriptionsItem>
+      </ElDescriptions>
+    </template>
+  </DefineEventOverview>
+  <DefineEventDetails>
+    <template v-if="detailEvent">
+      <ArtSectionTitle v-if="!detailUsesTabs">业务明细</ArtSectionTitle>
+      <ElDescriptions :column="detailColumns" border>
+        <ElDescriptionsItem
+          v-for="[key, value] in detailEntries(detailEvent.details)"
+          :key="key"
+          :label="detailLabel(key)"
+          >{{ value }}</ElDescriptionsItem
+        >
+      </ElDescriptions>
+      <ArtSectionTitle v-if="detailEvent.media?.length">现场附件</ArtSectionTitle>
+      <div v-if="detailEvent.media?.length" class="execution-event-page__media">
+        <a
+          v-for="(url, index) in detailEvent.media"
+          :key="url"
+          :href="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><ArtSvgIcon icon="ri:attachment-2" />附件 {{ index + 1 }}</a
+        >
+      </div>
+    </template>
+  </DefineEventDetails>
   <ArtPermissionGuard :permission="`${routeName}:View`" :resource-name="title">
     <div class="execution-event-page business-workspace-page art-full-height">
       <BusinessWorkspaceHeader
@@ -366,303 +417,16 @@
           </div>
           <ArtForm
             ref="formRef"
+            v-model:active-tab="activeFormTab"
             v-model="form"
-            :items="[]"
+            :items="formItems"
             :rules="formRules"
             :validate-on-rule-change="false"
-            custom-layout
+            :span="12"
+            :gutter="16"
             scroll-to-error
             root-class="p-0! md:p-0!"
-          >
-            <div class="execution-event-page__form-grid">
-              <ArtSectionTitle class="execution-event-page__form-section"
-                >归属与记录</ArtSectionTitle
-              >
-              <ElFormItem v-if="mode === 'equipment'" label="记录类型" required>
-                <ElSelect v-model="formKind" :disabled="formMode === 'update'">
-                  <ElOption
-                    v-for="item in kindOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </ElSelect>
-              </ElFormItem>
-              <ElFormItem label="工作中心" prop="workCenterId" required>
-                <ElSelect
-                  v-model="form.workCenterId"
-                  filterable
-                  placeholder="请选择工作中心"
-                  :disabled="Boolean(taskId)"
-                >
-                  <ElOption
-                    v-for="center in visibleCenters"
-                    :key="center.id"
-                    :label="`${center.code} · ${center.name}`"
-                    :value="center.id"
-                  />
-                </ElSelect>
-              </ElFormItem>
-              <ElFormItem label="工序任务" prop="taskId" :required="mode === 'inspection'">
-                <ElSelect
-                  v-model="form.taskId"
-                  filterable
-                  clearable
-                  placeholder="选择关联任务"
-                  :disabled="Boolean(taskId)"
-                >
-                  <ElOption
-                    v-for="task in taskOptions"
-                    :key="task.id"
-                    :label="`${task.taskNo} · ${task.operationName}`"
-                    :value="task.id"
-                  />
-                </ElSelect>
-              </ElFormItem>
-              <ElFormItem
-                prop="title"
-                :label="titleLabel"
-                required
-                class="execution-event-page__form-wide"
-              >
-                <ElInput
-                  v-model="form.title"
-                  maxlength="120"
-                  show-word-limit
-                  :placeholder="`请输入${titleLabel}`"
-                />
-              </ElFormItem>
-              <ArtSectionTitle class="execution-event-page__form-section">业务内容</ArtSectionTitle>
-              <template v-if="mode === 'misc_piece'">
-                <ElFormItem label="计件单位" prop="unit" required
-                  ><ElInput v-model="form.unit" placeholder="例如：件、次"
-                /></ElFormItem>
-                <ElFormItem label="单价（元）" prop="unitPrice" required
-                  ><ElInputNumber
-                    v-model="form.unitPrice"
-                    :min="0"
-                    :precision="2"
-                    controls-position="right"
-                /></ElFormItem>
-              </template>
-              <template v-if="mode === 'misc_report'">
-                <ElFormItem label="杂项工时（h）" prop="quantity" required
-                  ><ElInputNumber
-                    v-model="form.quantity"
-                    :min="0.01"
-                    :precision="2"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="在岗时长（h）"
-                  ><ElInputNumber
-                    v-model="form.onPostHours"
-                    :min="0"
-                    :precision="2"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="班次"
-                  ><ElInput v-model="form.shiftName" placeholder="请输入班次"
-                /></ElFormItem>
-              </template>
-              <template v-if="mode === 'inspection'">
-                <ElFormItem label="检验人员" prop="personId" required>
-                  <ArtUserSelect
-                    v-model="form.personId"
-                    :options="userOptions"
-                    :clearable="false"
-                    placeholder="选择检验人员"
-                  />
-                </ElFormItem>
-                <ElFormItem label="抽检次数" prop="sampleCount" required
-                  ><ElInputNumber
-                    v-model="form.sampleCount"
-                    :min="1"
-                    :precision="0"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="不良数量" prop="badCount" required
-                  ><ElInputNumber
-                    v-model="form.badCount"
-                    :min="0"
-                    :precision="0"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="合格次数" prop="passCount" required
-                  ><ElInputNumber
-                    v-model="form.passCount"
-                    :min="0"
-                    :precision="0"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="不合格次数" prop="failCount" required
-                  ><ElInputNumber
-                    v-model="form.failCount"
-                    :min="0"
-                    :precision="0"
-                    controls-position="right"
-                /></ElFormItem>
-                <ElFormItem label="判定结果" prop="judgment" required>
-                  <ElSegmented
-                    v-model="form.judgment"
-                    :options="[
-                      { label: '合格', value: 'pass' },
-                      { label: '不合格', value: 'fail' },
-                      { label: '特采', value: 'concession' }
-                    ]"
-                  />
-                </ElFormItem>
-                <ElFormItem label="计划数量"
-                  ><ElInput :model-value="selectedFormTask?.plannedQuantity ?? '—'" disabled
-                /></ElFormItem>
-              </template>
-              <template v-if="mode === 'mold'">
-                <ElFormItem label="模具编号" prop="moldCode" required
-                  ><ElInput v-model="form.moldCode" placeholder="请输入模具编号"
-                /></ElFormItem>
-                <ElFormItem label="模具名称"
-                  ><ElInput v-model="form.moldName" placeholder="请输入模具名称"
-                /></ElFormItem>
-                <ElFormItem label="库位"
-                  ><ElInput v-model="form.location" placeholder="请输入库位"
-                /></ElFormItem>
-                <ElFormItem label="装夹方式"
-                  ><ElInput v-model="form.clamping" placeholder="例如：快速装夹"
-                /></ElFormItem>
-                <ElFormItem label="上模人员">
-                  <ArtUserSelect
-                    v-model="form.personId"
-                    :options="userOptions"
-                    placeholder="选择上模人员"
-                  />
-                </ElFormItem>
-                <template v-if="formMode === 'update'">
-                  <ElFormItem label="维修日期" prop="repairDate" required>
-                    <ElDatePicker
-                      v-model="form.repairDate"
-                      type="date"
-                      value-format="YYYY-MM-DD"
-                      placeholder="选择维修日期"
-                    />
-                  </ElFormItem>
-                  <ElFormItem label="维修类型" prop="repairType" required>
-                    <ElSelect v-model="form.repairType" filterable placeholder="选择维修类型">
-                      <ElOption
-                        v-for="item in repairTypeOptions"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </ElSelect>
-                    <small>维修类型可在系统管理的数据字典中配置。</small>
-                  </ElFormItem>
-                  <ElFormItem label="维修人员">
-                    <ArtUserSelect
-                      v-model="form.repairPersonId"
-                      :options="userOptions"
-                      placeholder="选择维修人员"
-                    />
-                  </ElFormItem>
-                  <ElFormItem label="要求完成日期"
-                    ><ElDatePicker
-                      v-model="form.requiredCompletionDate"
-                      type="date"
-                      value-format="YYYY-MM-DD"
-                      placeholder="选择日期"
-                  /></ElFormItem>
-                  <ElFormItem label="计划完成日期"
-                    ><ElDatePicker
-                      v-model="form.plannedCompletionDate"
-                      type="date"
-                      value-format="YYYY-MM-DD"
-                      placeholder="选择日期"
-                  /></ElFormItem>
-                  <ElFormItem label="问题描述" class="execution-event-page__form-wide"
-                    ><ElInput
-                      v-model="form.problemDescription"
-                      type="textarea"
-                      :rows="2"
-                      maxlength="500"
-                  /></ElFormItem>
-                  <ElFormItem label="关联质检批号（可选）" class="execution-event-page__form-wide">
-                    <ElInput
-                      v-model="form.inspectionBatchNo"
-                      placeholder="填写对应检验记录的批号"
-                    />
-                  </ElFormItem>
-                </template>
-              </template>
-              <template v-if="mode === 'equipment'">
-                <ElFormItem label="设备编号" prop="equipmentCode" required
-                  ><ElInput v-model="form.equipmentCode" placeholder="请输入设备编号"
-                /></ElFormItem>
-                <ElFormItem label="设备名称"
-                  ><ElInput v-model="form.equipmentName" placeholder="请输入设备名称"
-                /></ElFormItem>
-                <ElFormItem label="检查结果" required
-                  ><ElSegmented
-                    v-model="form.judgment"
-                    :options="[
-                      { label: '正常', value: 'pass' },
-                      { label: '异常', value: 'fail' }
-                    ]"
-                /></ElFormItem>
-                <ElFormItem label="负责人">
-                  <ArtUserSelect
-                    v-model="form.personId"
-                    :options="userOptions"
-                    placeholder="选择负责人"
-                  />
-                </ElFormItem>
-              </template>
-              <template v-if="mode === 'andon' || mode === 'exception'">
-                <ElFormItem label="异常分类">
-                  <ElSelect v-model="form.category" clearable placeholder="选择分类">
-                    <ElOption
-                      v-for="option in exceptionCategories"
-                      :key="option"
-                      :label="option"
-                      :value="option"
-                    />
-                  </ElSelect>
-                </ElFormItem>
-                <ElFormItem label="处理人员">
-                  <ArtUserSelect
-                    v-model="form.personId"
-                    :options="userOptions"
-                    placeholder="选择处理人"
-                  />
-                </ElFormItem>
-                <ElFormItem v-if="mode === 'exception'" label="班次"
-                  ><ElInput v-model="form.shiftName" placeholder="请输入班次"
-                /></ElFormItem>
-                <ElFormItem v-if="mode === 'exception'" label="不计考核"
-                  ><ElSwitch v-model="form.excludedFromAssessment"
-                /></ElFormItem>
-              </template>
-              <ArtSectionTitle class="execution-event-page__form-section"
-                >现场说明与附件</ArtSectionTitle
-              >
-              <ElFormItem label="备注" class="execution-event-page__form-wide">
-                <ElInput
-                  v-model="form.remark"
-                  type="textarea"
-                  :rows="3"
-                  maxlength="500"
-                  show-word-limit
-                  placeholder="补充现场说明、处理背景或结论"
-                />
-              </ElFormItem>
-              <ElFormItem label="图片 / 视频" class="execution-event-page__form-wide">
-                <ArtUploadFile
-                  v-model="form.media"
-                  multiple
-                  :limit="10"
-                  title="上传现场附件"
-                  tip="支持图片、视频或相关文档；上传完成后随记录保存。"
-                />
-              </ElFormItem>
-            </div>
-          </ArtForm>
+          />
         </div>
       </ArtDialog>
 
@@ -670,50 +434,13 @@
         <ArtForm
           ref="actionFormRef"
           v-model="actionForm"
-          :items="[]"
+          :items="actionItems"
           :rules="actionRules"
           :validate-on-rule-change="false"
-          custom-layout
+          :span="24"
           scroll-to-error
           root-class="p-0! md:p-0!"
-        >
-          <ElFormItem v-if="actionType === 'accept'" label="处理人" prop="personId" required>
-            <ArtUserSelect
-              v-model="actionForm.personId"
-              :options="userOptions"
-              :clearable="false"
-              placeholder="请选择处理人"
-            />
-          </ElFormItem>
-          <ElFormItem
-            v-else
-            :label="actionEvent?.kind === 'mold' ? '下模记录' : '处理记录'"
-            prop="resolution"
-            required
-          >
-            <ElInput
-              v-model="actionForm.resolution"
-              type="textarea"
-              :rows="4"
-              maxlength="500"
-              show-word-limit
-              placeholder="请记录处理过程与结果"
-            />
-          </ElFormItem>
-          <template v-if="actionType === 'close' && actionEvent?.kind === 'mold'">
-            <ElFormItem label="下模人员" prop="personId" required>
-              <ArtUserSelect
-                v-model="actionForm.personId"
-                :options="userOptions"
-                :clearable="false"
-                placeholder="选择下模人员"
-              />
-            </ElFormItem>
-            <ElFormItem label="下模库位"
-              ><ElInput v-model="actionForm.location" placeholder="请输入库位"
-            /></ElFormItem>
-          </template>
-        </ArtForm>
+        />
       </ArtDialog>
 
       <ArtDrawer ref="detailDrawerRef" size="lg" :show-footer="false">
@@ -731,51 +458,18 @@
               {{ statusLabel(detailEvent.status) }}
             </ElTag>
           </div>
-          <ArtSectionTitle>记录概况</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem label="发生时间">{{
-              formatDateTime(detailEvent.occurredAt)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="发起人">{{
-              detailEvent.actorName || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="处理人">{{
-              detailEvent.handler?.name || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="响应时间">{{
-              formatDateTime(detailEvent.respondedAt)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="结束时间">{{
-              formatDateTime(detailEvent.completedAt)
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="数量">{{ detailEvent.quantity }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="工作中心">{{
-              detailEvent.workCenter?.name || '—'
-            }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="备注" :span="detailColumns">{{
-              detailEvent.remark || '—'
-            }}</ElDescriptionsItem>
-          </ElDescriptions>
-          <ArtSectionTitle>业务明细</ArtSectionTitle>
-          <ElDescriptions :column="detailColumns" border>
-            <ElDescriptionsItem
-              v-for="[key, value] in detailEntries(detailEvent.details)"
-              :key="key"
-              :label="detailLabel(key)"
-              >{{ value }}</ElDescriptionsItem
-            >
-          </ElDescriptions>
-          <ArtSectionTitle v-if="detailEvent.media?.length">现场附件</ArtSectionTitle>
-          <div v-if="detailEvent.media?.length" class="execution-event-page__media">
-            <a
-              v-for="(url, index) in detailEvent.media"
-              :key="url"
-              :href="url"
-              target="_blank"
-              rel="noopener noreferrer"
-              ><ArtSvgIcon icon="ri:attachment-2" />附件 {{ index + 1 }}</a
-            >
-          </div>
+          <ElTabs v-if="detailUsesTabs" v-model="activeDetailTab" class="min-w-0">
+            <ElTabPane name="overview" label="记录概况" :lazy="false">
+              <div class="execution-event-page__detail"><EventOverview /></div>
+            </ElTabPane>
+            <ElTabPane name="business" label="业务与附件" :lazy="false">
+              <div class="execution-event-page__detail"><EventDetails /></div>
+            </ElTabPane>
+          </ElTabs>
+          <template v-else>
+            <EventOverview />
+            <EventDetails />
+          </template>
         </div>
       </ArtDrawer>
     </div>
@@ -784,18 +478,19 @@
 </template>
 
 <script setup lang="ts">
+  import { toNameCodeOption } from '@/utils/form/option'
   import './production-detail-intro.scss'
   import { createDateTimeFormatter } from '@/utils/ui/format'
 
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
   import { computed, nextTick, onMounted, ref, watch } from 'vue'
-  import { useMediaQuery } from '@vueuse/core'
+  import { createReusableTemplate, useMediaQuery } from '@vueuse/core'
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { ElMessage, type FormRules } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
-  import ArtForm from '@/components/core/forms/art-form/index.vue'
+  import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import type { ArtDialogExpose } from '@/components/core/dialogs/art-dialog/types'
   import ArtDrawer from '@/components/core/drawers/art-drawer/index.vue'
   import type { ArtDrawerExpose } from '@/components/core/drawers/art-drawer/types'
@@ -809,8 +504,6 @@
   import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
-  import ArtUploadFile from '@/components/core/forms/art-upload-file/index.vue'
-  import ArtUserSelect from '@/components/core/forms/art-user-select/index.vue'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import BusinessTableWorkspaceActions from '@/components/business/business-table-workspace-actions/index.vue'
@@ -849,6 +542,8 @@
     }>(),
     { embedded: false, taskId: '', workCenterId: '', initialKind: undefined }
   )
+  const [DefineEventOverview, EventOverview] = createReusableTemplate()
+  const [DefineEventDetails, EventDetails] = createReusableTemplate()
   const compactDetail = useMediaQuery('(max-width: 640px)')
   const detailColumns = computed(() => (compactDetail.value ? 1 : 2))
   const { deleteGuardRef, deleteRecords, deleteBusy } = useRecordDeleteGuard(
@@ -959,7 +654,12 @@
           ? 'equipment_check'
           : props.mode)
   )
-  const formKind = ref<MesExecutionEventKind>(selectedKind.value)
+  const formKind = computed<MesExecutionEventKind>({
+    get: () => form.value.kind,
+    set: (value) => {
+      form.value.kind = value
+    }
+  })
   const equipmentView = ref<
     'equipment_check' | 'equipment_patrol' | 'equipment_maintenance' | 'supplement'
   >(
@@ -1134,6 +834,14 @@
   const detailDrawerRef = ref<ArtDrawerExpose<MesExecutionEvent>>()
   const detailEvent = ref<MesExecutionEvent | null>(null)
   const formMode = ref<'create' | 'update'>('create')
+  const activeFormTab = ref('identity')
+  const activeDetailTab = ref('overview')
+  const formUsesTabs = computed(
+    () => props.mode === 'inspection' || (props.mode === 'mold' && formMode.value === 'update')
+  )
+  const detailUsesTabs = computed(() =>
+    Boolean(detailEvent.value && detailEntries(detailEvent.value.details).length >= 6)
+  )
   const editingId = ref<string | null>(null)
   const actionEvent = ref<MesExecutionEvent | null>(null)
   const actionType = ref<'accept' | 'close'>('accept')
@@ -1159,6 +867,7 @@
       : {})
   }))
   const form = ref({
+    kind: selectedKind.value,
     workCenterId: '',
     taskId: '',
     title: '',
@@ -1191,6 +900,476 @@
     remark: '',
     media: [] as string[]
   })
+  const eventIdentityItems = computed<FormItem[]>(() =>
+    [
+      {
+        key: 'kind',
+        label: '记录类型',
+        type: 'select',
+        span: 12,
+        formItemProps: { required: true },
+        props: {
+          disabled: formMode.value === 'update',
+          options: kindOptions.value.map((item) => ({ label: item.label, value: item.value }))
+        },
+        hidden: !(props.mode === 'equipment')
+      },
+      {
+        key: 'workCenterId',
+        label: '工作中心',
+        type: 'select',
+        span: 12,
+        formItemProps: { required: true },
+        props: {
+          filterable: true,
+          placeholder: '请选择工作中心',
+          disabled: Boolean(props.taskId),
+          options: visibleCenters.value.map(toNameCodeOption)
+        },
+        hidden: false
+      },
+      {
+        key: 'taskId',
+        label: '工序任务',
+        type: 'select',
+        span: 12,
+        formItemProps: { required: props.mode === 'inspection' },
+        props: {
+          filterable: true,
+          clearable: true,
+          placeholder: '选择关联任务',
+          disabled: Boolean(props.taskId),
+          options: taskOptions.value.map((task) => ({
+            label: `${task.taskNo} · ${task.operationName}`,
+            value: task.id
+          }))
+        },
+        hidden: false
+      },
+      {
+        key: 'title',
+        label: titleLabel.value,
+        type: 'input',
+        span: 24,
+        formItemProps: { required: true },
+        props: { maxlength: '120', showWordLimit: true, placeholder: `请输入${titleLabel.value}` },
+        hidden: false
+      }
+    ].filter((item) => !item.hidden)
+  )
+  const eventBusinessItems = computed<FormItem[]>(() =>
+    [
+      {
+        key: 'unit',
+        label: '计件单位',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: true },
+        props: { placeholder: '例如：件、次' },
+        hidden: !(props.mode === 'misc_piece')
+      },
+      {
+        key: 'unitPrice',
+        label: '单价（元）',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 0, precision: 2, controlsPosition: 'right' },
+        hidden: !(props.mode === 'misc_piece')
+      },
+      {
+        key: 'quantity',
+        label: '杂项工时（h）',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 0.01, precision: 2, controlsPosition: 'right' },
+        hidden: !(props.mode === 'misc_report')
+      },
+      {
+        key: 'onPostHours',
+        label: '在岗时长（h）',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: false },
+        props: { min: 0, precision: 2, controlsPosition: 'right' },
+        hidden: !(props.mode === 'misc_report')
+      },
+      {
+        key: 'shiftName',
+        label: '班次',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '请输入班次' },
+        hidden: !(props.mode === 'misc_report')
+      },
+      {
+        key: 'personId',
+        label: '检验人员',
+        type: 'userSelect',
+        span: 12,
+        formItemProps: { required: true },
+        props: { options: userOptions.value, clearable: false, placeholder: '选择检验人员' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'sampleCount',
+        label: '抽检次数',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 1, precision: 0, controlsPosition: 'right' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'badCount',
+        label: '不良数量',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 0, precision: 0, controlsPosition: 'right' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'passCount',
+        label: '合格次数',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 0, precision: 0, controlsPosition: 'right' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'failCount',
+        label: '不合格次数',
+        type: 'number',
+        span: 12,
+        formItemProps: { required: true },
+        props: { min: 0, precision: 0, controlsPosition: 'right' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'judgment',
+        label: '判定结果',
+        type: 'segment',
+        span: 12,
+        formItemProps: { required: true },
+        props: {
+          options: [
+            { label: '合格', value: 'pass' },
+            { label: '不合格', value: 'fail' },
+            { label: '特采', value: 'concession' }
+          ]
+        },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'plannedQuantity',
+        label: '计划数量',
+        type: 'text',
+        span: 12,
+        formItemProps: { required: false },
+        props: { formatter: () => selectedFormTask.value?.plannedQuantity ?? '—' },
+        hidden: !(props.mode === 'inspection')
+      },
+      {
+        key: 'moldCode',
+        label: '模具编号',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: true },
+        props: { placeholder: '请输入模具编号' },
+        hidden: !(props.mode === 'mold')
+      },
+      {
+        key: 'moldName',
+        label: '模具名称',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '请输入模具名称' },
+        hidden: !(props.mode === 'mold')
+      },
+      {
+        key: 'location',
+        label: '库位',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '请输入库位' },
+        hidden: !(props.mode === 'mold')
+      },
+      {
+        key: 'clamping',
+        label: '装夹方式',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '例如：快速装夹' },
+        hidden: !(props.mode === 'mold')
+      },
+      {
+        key: 'personId',
+        label: '上模人员',
+        type: 'userSelect',
+        span: 12,
+        formItemProps: { required: false },
+        props: { options: userOptions.value, placeholder: '选择上模人员' },
+        hidden: !(props.mode === 'mold')
+      },
+      {
+        key: 'equipmentCode',
+        label: '设备编号',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: true },
+        props: { placeholder: '请输入设备编号' },
+        hidden: !(props.mode === 'equipment')
+      },
+      {
+        key: 'equipmentName',
+        label: '设备名称',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '请输入设备名称' },
+        hidden: !(props.mode === 'equipment')
+      },
+      {
+        key: 'judgment',
+        label: '检查结果',
+        type: 'segment',
+        span: 12,
+        formItemProps: { required: true },
+        props: {
+          options: [
+            { label: '正常', value: 'pass' },
+            { label: '异常', value: 'fail' }
+          ]
+        },
+        hidden: !(props.mode === 'equipment')
+      },
+      {
+        key: 'personId',
+        label: '负责人',
+        type: 'userSelect',
+        span: 12,
+        formItemProps: { required: false },
+        props: { options: userOptions.value, placeholder: '选择负责人' },
+        hidden: !(props.mode === 'equipment')
+      },
+      {
+        key: 'category',
+        label: '异常分类',
+        type: 'select',
+        span: 12,
+        formItemProps: { required: false },
+        props: {
+          clearable: true,
+          placeholder: '选择分类',
+          options: exceptionCategories.map((option) => ({ label: option, value: option }))
+        },
+        hidden: !(props.mode === 'andon' || props.mode === 'exception')
+      },
+      {
+        key: 'personId',
+        label: '处理人员',
+        type: 'userSelect',
+        span: 12,
+        formItemProps: { required: false },
+        props: { options: userOptions.value, placeholder: '选择处理人' },
+        hidden: !(props.mode === 'andon' || props.mode === 'exception')
+      },
+      {
+        key: 'shiftName',
+        label: '班次',
+        type: 'input',
+        span: 12,
+        formItemProps: { required: false },
+        props: { placeholder: '请输入班次' },
+        hidden: props.mode !== 'exception'
+      },
+      {
+        key: 'excludedFromAssessment',
+        label: '不计考核',
+        type: 'switch',
+        span: 12,
+        formItemProps: { required: false },
+        props: {},
+        hidden: props.mode !== 'exception'
+      }
+    ].filter((item) => !item.hidden)
+  )
+  const moldRepairItems = computed<FormItem[]>(() =>
+    [
+      {
+        key: 'repairDate',
+        label: '维修日期',
+        type: 'date',
+        span: 12,
+        formItemProps: { required: true },
+        props: { type: 'date', valueFormat: 'YYYY-MM-DD', placeholder: '选择维修日期' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      },
+      {
+        key: 'repairType',
+        label: '维修类型',
+        type: 'select',
+        span: 12,
+        formItemProps: { required: true },
+        props: {
+          filterable: true,
+          placeholder: '选择维修类型',
+          options: repairTypeOptions.value.map((item) => ({ label: item.label, value: item.value }))
+        },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update'),
+        description: '维修类型可在系统管理的数据字典中配置。'
+      },
+      {
+        key: 'repairPersonId',
+        label: '维修人员',
+        type: 'userSelect',
+        span: 12,
+        formItemProps: { required: false },
+        props: { options: userOptions.value, placeholder: '选择维修人员' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      },
+      {
+        key: 'requiredCompletionDate',
+        label: '要求完成日期',
+        type: 'date',
+        span: 12,
+        formItemProps: { required: false },
+        props: { type: 'date', valueFormat: 'YYYY-MM-DD', placeholder: '选择日期' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      },
+      {
+        key: 'plannedCompletionDate',
+        label: '计划完成日期',
+        type: 'date',
+        span: 12,
+        formItemProps: { required: false },
+        props: { type: 'date', valueFormat: 'YYYY-MM-DD', placeholder: '选择日期' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      },
+      {
+        key: 'problemDescription',
+        label: '问题描述',
+        type: 'textarea',
+        span: 24,
+        formItemProps: { required: false },
+        props: { type: 'textarea', rows: 2, maxlength: '500' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      },
+      {
+        key: 'inspectionBatchNo',
+        label: '关联质检批号（可选）',
+        type: 'input',
+        span: 24,
+        formItemProps: { required: false },
+        props: { placeholder: '填写对应检验记录的批号' },
+        hidden: !(props.mode === 'mold' && formMode.value === 'update')
+      }
+    ].filter((item) => !item.hidden)
+  )
+  const eventEvidenceItems = computed<FormItem[]>(() =>
+    [
+      {
+        key: 'remark',
+        label: '备注',
+        type: 'textarea',
+        span: 24,
+        formItemProps: { required: false },
+        props: {
+          type: 'textarea',
+          rows: 3,
+          maxlength: '500',
+          showWordLimit: true,
+          placeholder: '补充现场说明、处理背景或结论'
+        },
+        hidden: false
+      },
+      {
+        key: 'media',
+        label: '图片 / 视频',
+        type: 'uploadFile',
+        span: 24,
+        formItemProps: { required: false },
+        props: {
+          multiple: true,
+          limit: 10,
+          title: '上传现场附件',
+          tip: '支持图片、视频或相关文档；上传完成后随记录保存。'
+        },
+        hidden: false
+      }
+    ].filter((item) => !item.hidden)
+  )
+  const formItems = computed<FormItem[]>(() =>
+    formUsesTabs.value
+      ? [
+          {
+            key: 'identity',
+            label: props.mode === 'mold' ? '模具与归属' : '归属与说明',
+            type: 'tab'
+          },
+          ...eventIdentityItems.value,
+          ...(props.mode === 'mold' ? eventBusinessItems.value : eventEvidenceItems.value),
+          {
+            key: 'business',
+            label: props.mode === 'mold' ? '维修与记录' : '检验结果',
+            type: 'tab'
+          },
+          ...(props.mode === 'mold'
+            ? [...moldRepairItems.value, ...eventEvidenceItems.value]
+            : eventBusinessItems.value)
+        ]
+      : [...eventIdentityItems.value, ...eventBusinessItems.value, ...eventEvidenceItems.value]
+  )
+  const actionItems = computed<FormItem[]>(() => [
+    ...(actionType.value === 'accept'
+      ? [
+          {
+            key: 'personId',
+            label: '处理人',
+            type: 'userSelect',
+            formItemProps: { required: true },
+            props: { options: userOptions.value, clearable: false, placeholder: '请选择处理人' }
+          }
+        ]
+      : [
+          {
+            key: 'resolution',
+            label: actionEvent.value?.kind === 'mold' ? '下模记录' : '处理记录',
+            type: 'textarea',
+            formItemProps: { required: true },
+            props: {
+              rows: 4,
+              maxlength: 500,
+              showWordLimit: true,
+              placeholder: '请记录处理过程与结果'
+            }
+          }
+        ]),
+    ...(actionType.value === 'close' && actionEvent.value?.kind === 'mold'
+      ? [
+          {
+            key: 'personId',
+            label: '下模人员',
+            type: 'userSelect',
+            formItemProps: { required: true },
+            props: { options: userOptions.value, clearable: false, placeholder: '选择下模人员' }
+          },
+          {
+            key: 'location',
+            label: '下模库位',
+            type: 'input',
+            props: { placeholder: '请输入库位' }
+          }
+        ]
+      : [])
+  ])
   const formRules = computed<FormRules>(() => ({
     workCenterId: [{ required: true, message: '请选择工作中心', trigger: 'change' }],
     title: [
@@ -1427,6 +1606,7 @@
     })
   }
   function resetForm() {
+    activeFormTab.value = 'identity'
     Object.assign(form.value, {
       workCenterId: activeWorkCenterId.value,
       taskId: props.taskId || '',
@@ -1651,6 +1831,7 @@
     })
   }
   function openDetail(rawRow: unknown) {
+    activeDetailTab.value = 'overview'
     const row = rawRow as MesExecutionEvent
     detailEvent.value = row
     detailDrawerRef.value?.handleOpen(row, { title: `${title.value}详情` })
@@ -1767,7 +1948,6 @@
   .execution-event-page {
     display: flex;
     flex-direction: column;
-    gap: 12px;
     min-height: 0;
 
     &__equipment-tabs {
@@ -1880,11 +2060,6 @@
 
     &__form-wide {
       grid-column: 1 / -1;
-    }
-
-    &__form-section {
-      grid-column: 1 / -1;
-      margin-top: 4px;
     }
 
     &__form-grid :deep(.el-input-number),

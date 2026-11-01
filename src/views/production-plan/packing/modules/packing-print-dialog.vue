@@ -21,54 +21,6 @@
           :span="24"
           label-position="top"
         >
-          <template #paperWidthMm>
-            <ElInputNumber
-              v-model="form.data.paperWidthMm"
-              :min="1"
-              :max="105"
-              :precision="1"
-              :step="1"
-              controls-position="right"
-              aria-label="标签纸宽度 mm"
-              class="w-full!"
-            />
-          </template>
-          <template #paperHeightMm>
-            <ElInputNumber
-              v-model="form.data.paperHeightMm"
-              :min="1"
-              :precision="1"
-              :step="1"
-              controls-position="right"
-              aria-label="标签纸高度 mm"
-              class="w-full!"
-            />
-          </template>
-          <template #standard>
-            <ElInput
-              v-model="form.data.standard"
-              maxlength="80"
-              placeholder="按产品实际执行标准填写"
-            />
-          </template>
-          <template #boardType><ElInput v-model="form.data.boardType" maxlength="80" /></template>
-          <template #color><ElInput v-model="form.data.color" maxlength="80" /></template>
-          <template #inspectorId>
-            <ArtEmployeeSelect
-              :model-value="form.data.inspectorId || undefined"
-              :tenant-id="dialog.input.order.tenantId"
-              placeholder="选择质检员，或留空手签"
-              @change="selectInspector"
-            />
-          </template>
-          <template #productionDate>
-            <ElDatePicker
-              v-model="form.data.productionDate"
-              type="date"
-              value-format="YYYY-MM-DD"
-              class="w-full!"
-            />
-          </template>
         </ArtForm>
         <PackingPrintContent
           :mode="dialog.input.mode"
@@ -95,6 +47,7 @@
 
 <script setup lang="ts">
   import { cloneDeep } from 'lodash-es'
+  import type { ComputedRef } from 'vue'
   import { useStyleTag } from '@vueuse/core'
   import type { FormRules } from 'element-plus'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -102,7 +55,6 @@
   import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import { usePrintSheet } from '@/hooks/core/usePrintSheet'
   import { useAuth } from '@/hooks/core/useAuth'
-  import ArtEmployeeSelect from '@/components/business/art-employee-select/index.vue'
   import type { EmployeeIntegrationItem } from '@/api/integration/employees'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
   import PackingPrintContent from './packing-print-content.vue'
@@ -126,7 +78,7 @@
   }>({ input: null, labels: [], printing: false })
   const form = reactive<{
     data: PackingPrintOptions & { inspectorId: string }
-    items: FormItem[]
+    items: ComputedRef<FormItem[]>
     rules: FormRules
   }>({
     data: {
@@ -139,23 +91,61 @@
       inspectorId: '',
       productionDate: ''
     },
-    items: [
-      { key: 'paperWidthMm', label: '纸张宽度 mm（最大 105）', type: 'slot', span: 12 },
-      { key: 'paperHeightMm', label: '纸张高度 mm', type: 'slot', span: 12 },
+    items: computed<FormItem[]>(() => [
+      {
+        key: 'paperWidthMm',
+        label: '纸张宽度 mm（最大 105）',
+        type: 'number',
+        span: 12,
+        props: {
+          min: 1,
+          max: 105,
+          precision: 1,
+          step: 1,
+          controlsPosition: 'right',
+          ariaLabel: '标签纸宽度 mm',
+          class: 'w-full!'
+        }
+      },
+      {
+        key: 'paperHeightMm',
+        label: '纸张高度 mm',
+        type: 'number',
+        span: 12,
+        props: {
+          min: 1,
+          precision: 1,
+          step: 1,
+          controlsPosition: 'right',
+          ariaLabel: '标签纸高度 mm',
+          class: 'w-full!'
+        }
+      },
       {
         key: 'standard',
         label: '执行标准',
-        type: 'slot'
+        type: 'input',
+        props: { maxlength: '80', placeholder: '按产品实际执行标准填写' }
       },
-      { key: 'boardType', label: '板型', type: 'slot' },
-      { key: 'color', label: '颜色', type: 'slot' },
-      { key: 'inspectorId', label: '质检员', type: 'slot' },
+      { key: 'boardType', label: '板型', type: 'input', props: { maxlength: '80' } },
+      { key: 'color', label: '颜色', type: 'input', props: { maxlength: '80' } },
+      {
+        key: 'inspectorId',
+        label: '质检员',
+        type: 'employeeSelect',
+        props: {
+          tenantId: dialog.input?.order.tenantId,
+          placeholder: '选择质检员，或留空手签',
+          onChange: selectInspector
+        }
+      },
       {
         key: 'productionDate',
         label: '生产日期',
-        type: 'slot'
+        type: 'date',
+        props: { type: 'date', valueFormat: 'YYYY-MM-DD', class: 'w-full!' }
       }
-    ],
+    ]),
     rules: {
       paperWidthMm: [
         {

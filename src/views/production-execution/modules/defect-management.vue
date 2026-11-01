@@ -689,7 +689,6 @@
   .defect-page {
     display: flex;
     flex-direction: column;
-    gap: 12px;
     min-height: 0;
   }
 

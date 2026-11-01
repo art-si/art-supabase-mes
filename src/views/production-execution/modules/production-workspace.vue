@@ -498,57 +498,26 @@
           </div>
         </div>
       </ArtDrawer>
-      <ArtDialog ref="clockDialogRef" size="sm"
-        ><ArtForm
+      <ArtDialog ref="clockDialogRef" size="sm">
+        <ArtForm
           ref="clockFormRef"
           v-model="clockForm"
-          :items="[]"
+          :items="clockItems"
           :rules="clockRules"
-          custom-layout
+          :span="24"
           root-class="p-0! md:p-0!"
-          ><ElFormItem label="上机人员" prop="personIds" required
-            ><ArtUserSelect
-              v-model="clockForm.personIds"
-              :options="userOptions"
-              :clearable="false"
-              multiple
-              placeholder="请选择上机人员" /></ElFormItem></ArtForm
-      ></ArtDialog>
-      <ArtDialog ref="feedDialogRef" size="md"
-        ><ArtForm
+        />
+      </ArtDialog>
+      <ArtDialog ref="feedDialogRef" size="md">
+        <ArtForm
           ref="feedFormRef"
           v-model="feedForm"
-          :items="[]"
+          :items="feedItems"
           :rules="feedRules"
-          custom-layout
+          :span="12"
           root-class="p-0! md:p-0!"
-          ><ElFormItem label="投料物料" prop="materialCode" required
-            ><ElSelect v-model="feedForm.materialCode" filterable placeholder="选择本工序物料"
-              ><ElOption
-                v-for="item in materials"
-                :key="item.componentMaterialCode"
-                :value="item.componentMaterialCode || ''"
-                :label="`${item.componentMaterialCode} · ${item.componentMaterialName}`" /></ElSelect></ElFormItem
-          ><ElFormItem label="投料数量" prop="quantity" required
-            ><ElInputNumber
-              v-model="feedForm.quantity"
-              :min="0.01"
-              :precision="2"
-              controls-position="right" /></ElFormItem
-          ><ElFormItem label="批次号"
-            ><ElInput v-model="feedForm.batchNo" maxlength="80" /></ElFormItem
-          ><ElFormItem label="投料人员"
-            ><ArtUserSelect
-              v-model="feedForm.personId"
-              :options="userOptions"
-              placeholder="选择投料人员" /></ElFormItem
-          ><ElFormItem label="备注"
-            ><ElInput
-              v-model="feedForm.remark"
-              type="textarea"
-              :rows="2"
-              maxlength="500" /></ElFormItem></ArtForm
-      ></ArtDialog>
+        />
+      </ArtDialog>
       <ProductionReportForm ref="reportFormRef" @saved="reload" />
       <component
         :is="workOrderDialogComponent"
@@ -573,8 +542,7 @@
   import ArtTableQuery from '@/components/core/tables/art-table-query/index.vue'
   import ArtWorkspaceSplitter from '@/components/core/layouts/art-workspace-splitter/index.vue'
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
-  import ArtForm from '@/components/core/forms/art-form/index.vue'
-  import ArtUserSelect from '@/components/core/forms/art-user-select/index.vue'
+  import ArtForm, { type FormItem } from '@/components/core/forms/art-form/index.vue'
   import ArtDrawer from '@/components/core/drawers/art-drawer/index.vue'
   import type { ArtDrawerExpose } from '@/components/core/drawers/art-drawer/types'
   import ArtDialog from '@/components/core/dialogs/art-dialog/index.vue'
@@ -689,6 +657,48 @@
   const compactDetail = useMediaQuery('(max-width: 640px)')
   const detailColumns = computed(() => (compactDetail.value ? 1 : 2))
   const clockForm = ref({ personIds: [] as string[] })
+  const clockItems = computed<FormItem[]>(() => [
+    {
+      key: 'personIds',
+      label: '上机人员',
+      type: 'userSelect',
+      formItemProps: { required: true },
+      props: {
+        options: userOptions.value,
+        clearable: false,
+        multiple: true,
+        placeholder: '请选择上机人员'
+      }
+    }
+  ])
+  const feedItems = computed<FormItem[]>(() => [
+    {
+      key: 'materialCode',
+      label: '投料物料',
+      type: 'select',
+      formItemProps: { required: true },
+      options: materials.value.map((item) => ({
+        value: item.componentMaterialCode || '',
+        label: `${item.componentMaterialCode} · ${item.componentMaterialName}`
+      })),
+      props: { filterable: true, placeholder: '选择本工序物料' }
+    },
+    {
+      key: 'quantity',
+      label: '投料数量',
+      type: 'number',
+      formItemProps: { required: true },
+      props: { min: 0.01, precision: 2, controlsPosition: 'right' }
+    },
+    { key: 'batchNo', label: '批次号', type: 'input', props: { maxlength: 80 } },
+    {
+      key: 'personId',
+      label: '投料人员',
+      type: 'userSelect',
+      props: { options: userOptions.value, placeholder: '选择投料人员' }
+    },
+    { key: 'remark', label: '备注', type: 'textarea', span: 24, props: { rows: 2, maxlength: 500 } }
+  ])
   const clockRules: FormRules = {
     personIds: [
       { type: 'array', required: true, min: 1, message: '请选择上机人员', trigger: 'change' }
@@ -1235,7 +1245,6 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 12px;
     min-height: 0;
   }
 

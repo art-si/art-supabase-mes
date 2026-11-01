@@ -97,38 +97,7 @@
             class="rounded-lg bg-g-100 p-3"
           />
         </template>
-        <template #orderQuantity>
-          <div class="flex min-w-0 items-center gap-2">
-            <ElInputNumber
-              v-model="model.orderQuantity"
-              class="min-w-0 flex-1"
-              :min="0.01"
-              :precision="2"
-              :disabled="locked"
-              aria-label="工单数量"
-              @change="quantityOverridden = true"
-            />
-            <ElButton :disabled="locked || !detailRows.length" @click="resetQuantityFromDetails">
-              按面积重算
-            </ElButton>
-          </div>
-        </template>
-        <template #merchandiserId
-          ><ArtEmployeeSelect
-            :model-value="model.merchandiserId ?? undefined"
-            :selected-data="employeeSelection(model.merchandiserId)"
-            :tenant-id="model.tenantId"
-            placeholder="选择跟单员"
-            @update:model-value="model.merchandiserId = $event ?? null"
-        /></template>
-        <template #salespersonId
-          ><ArtEmployeeSelect
-            :model-value="model.salespersonId ?? undefined"
-            :selected-data="employeeSelection(model.salespersonId)"
-            :tenant-id="model.tenantId"
-            placeholder="选择业务员"
-            @update:model-value="model.salespersonId = $event ?? null"
-        /></template>
+
         <template #productionDetails>
           <WorkOrderDetails
             ref="detailsRef"
@@ -147,7 +116,8 @@
   import { toNameCodeOption } from '@/utils/form/option'
   import { validateArtFormForSubmit } from '@/utils/form/validate-art-form'
   import { notifyFriendlyError } from '@/hooks/core/useArtFeedback'
-  import { ElMessage } from 'element-plus'
+  import { ElButton, ElMessage } from 'element-plus'
+  import { h } from 'vue'
   import dayjs from 'dayjs'
   import { cloneDeep, pick } from 'lodash-es'
   import { normalizeNullableText } from '@/utils/form/normalize'
@@ -159,7 +129,6 @@
     DataSelectFetchParams,
     DataSelectRecord
   } from '@/components/core/forms/art-data-select/types'
-  import ArtEmployeeSelect from '@/components/business/art-employee-select/index.vue'
   import type { EmployeeIntegrationItem } from '@/api/integration/employees'
   import ArtEntitySummary from '@/components/core/surfaces/art-entity-summary/index.vue'
   import ArtDescriptions from '@/components/core/base/art-descriptions/index.vue'
@@ -485,7 +454,23 @@
     {
       key: 'orderQuantity',
       label: '工单数量',
-      type: 'slot',
+      type: 'number',
+      props: {
+        min: 0.01,
+        precision: 2,
+        disabled: locked.value,
+        class: 'w-full!',
+        'aria-label': '工单数量',
+        onChange: () => {
+          quantityOverridden.value = true
+        }
+      },
+      description: () =>
+        h(
+          ElButton,
+          { disabled: locked.value || !detailRows.value.length, onClick: resetQuantityFromDetails },
+          () => '按面积重算'
+        ),
       span: 12,
       help: `按生产单明细面积自动汇总，当前合计 ${detailAreaTotal.value.toFixed(2)} ㎡；可手动修改。`
     },
@@ -550,8 +535,34 @@
       type: 'number',
       props: { disabled: locked.value, min: 0, precision: 6, class: '!w-full' }
     },
-    { key: 'merchandiserId', label: '跟单员', type: 'slot', span: 8 },
-    { key: 'salespersonId', label: '业务员', type: 'slot', span: 8 },
+    {
+      key: 'merchandiserId',
+      label: '跟单员',
+      type: 'employeeSelect',
+      span: 8,
+      props: {
+        selectedData: employeeSelection(model.value.merchandiserId),
+        tenantId: model.value.tenantId,
+        placeholder: '选择跟单员',
+        onChange: (value: string | string[] | undefined) => {
+          model.value.merchandiserId = typeof value === 'string' ? value : null
+        }
+      }
+    },
+    {
+      key: 'salespersonId',
+      label: '业务员',
+      type: 'employeeSelect',
+      span: 8,
+      props: {
+        selectedData: employeeSelection(model.value.salespersonId),
+        tenantId: model.value.tenantId,
+        placeholder: '选择业务员',
+        onChange: (value: string | string[] | undefined) => {
+          model.value.salespersonId = typeof value === 'string' ? value : null
+        }
+      }
+    },
     { key: 'trackingNo', label: '跟踪号', span: 8, props: { disabled: locked.value } },
     { key: 'followNo', label: '跟随号', span: 8, props: { disabled: locked.value } },
     { key: 'customProcessCode', label: '定制工艺编号', span: 8, props: { disabled: locked.value } },

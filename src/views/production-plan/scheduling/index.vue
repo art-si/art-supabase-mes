@@ -1121,7 +1121,6 @@
   .scheduling-page {
     display: flex;
     flex-direction: column;
-    gap: var(--art-space-3);
     min-width: 0;
     min-height: 0;
 

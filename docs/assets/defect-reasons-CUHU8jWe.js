@@ -1,0 +1,1 @@
+import{et as e,kt as t,lt as n}from"./dist-DOTv3Dg2.js";import{t as r}from"./defect-management-Cu6Lw-30.js";var i=n({name:`MesDefectReasons`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{"initial-tab":`reasons`}))}});export{i as default};
