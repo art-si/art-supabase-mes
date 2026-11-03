@@ -124,7 +124,10 @@
     }
   )
   const addRow = () => rows.value.push(newRow())
-  const removeRow = (row: WorkOrderDetailDraft) => rows.value.splice(rows.value.indexOf(row), 1)
+  const removeRow = (row: WorkOrderDetailDraft): void => {
+    const index = rows.value.indexOf(row)
+    if (index >= 0) rows.value.splice(index, 1)
+  }
   const columns = computed<ColumnOption<WorkOrderDetailDraft>[]>(() => [
     { type: 'index', label: '#', width: 52 },
     {

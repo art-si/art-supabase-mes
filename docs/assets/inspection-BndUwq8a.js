@@ -1,0 +1,1 @@
+import{et as e,kt as t,lt as n}from"./dist-DOTv3Dg2.js";import{t as r}from"./execution-event-workspace-Bg-cJOrc.js";var i=n({name:`MesInspection`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{mode:`inspection`}))}});export{i as default};

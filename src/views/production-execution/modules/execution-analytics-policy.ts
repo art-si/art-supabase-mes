@@ -1,6 +1,6 @@
 import { createDateTimeFormatter } from '@/utils/ui/format'
 import dayjs from 'dayjs'
-import { groupBy } from 'lodash-es'
+import { groupBy, mapValues } from 'lodash-es'
 import type {
   MesExecutionAttendance,
   MesExecutionEvent,
@@ -71,7 +71,31 @@ export function buildShiftAchievementRows(
   events: MesExecutionEvent[],
   range: [string, string]
 ): ShiftAchievementRow[] {
+  if (!tasks.length) return []
   const rows = new Map<string, ShiftAchievementRow>()
+  const taskIds = new Set(tasks.map((task) => task.id))
+  const exceptionRemarksByTaskAndDate = new Map(
+    Object.entries(
+      groupBy(
+        events.filter(
+          (event) =>
+            typeof event.taskId === 'string' &&
+            taskIds.has(event.taskId) &&
+            (event.kind === 'exception' || event.kind === 'andon')
+        ),
+        'taskId'
+      )
+    ).map(
+      ([taskId, taskEvents]) =>
+        [
+          taskId,
+          mapValues(
+            groupBy(taskEvents, (event) => day(event.occurredAt)),
+            (items) => items.map((item) => item.title).join('；')
+          )
+        ] as const
+    )
+  )
   for (const task of tasks) {
     const allocations = task.allocations?.length
       ? task.allocations
@@ -91,12 +115,6 @@ export function buildShiftAchievementRows(
       if (!date || !isInRange(date, range)) continue
       const shift = allocation.shiftNameSnapshot || '未指定班次'
       const key = `${date}|${shift}|${allocation.workCenterId}|${task.id}`
-      const relatedExceptions = events.filter(
-        (event) =>
-          event.taskId === task.id &&
-          ['exception', 'andon'].includes(event.kind) &&
-          day(event.occurredAt) === date
-      )
       rows.set(key, {
         key,
         date,
@@ -108,7 +126,7 @@ export function buildShiftAchievementRows(
         task,
         plannedQuantity: Number(allocation.quantity || 0),
         achievedQuantity: 0,
-        exceptionRemark: relatedExceptions.map((item) => item.title).join('；')
+        exceptionRemark: exceptionRemarksByTaskAndDate.get(task.id)?.[date] ?? ''
       })
     }
   }

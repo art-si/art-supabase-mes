@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { PackDraft, PackRule, WorkOrderBoard } from '../../src/api/packing'
 import {
+  canPackBoardsTogether,
   packTotals,
   nextPackNo,
   remainingPieces,
+  sortBoardsForPacking,
   suggestPacks,
   validatePlan
 } from '../../src/views/production-plan/packing/modules/packing-plan'
@@ -24,6 +26,7 @@ const rule: PackRule = {
   sameArea: true,
   sameNumber: true,
   allowMixLength: false,
+  lengthSortDirection: 'desc',
   remainderPolicy: 'separate',
   sortPriority: 'area,boardNo,width,length',
   remark: '',
@@ -107,6 +110,88 @@ test('尾数独立小包不会并入下一行板材，合并策略可以共包',
   assert.equal(separate.length, 2)
   assert.equal(merged.length, 1)
   assert.equal(merged[0].items.length, 2)
+})
+
+test('同区域同编号按配置的长度方向排包，不改变原始板材顺序', () => {
+  const boards = [
+    { ...board('short', 2, '一区', 'A轴', 6000), boardNo: 'A-1' },
+    { ...board('long', 2, '一区', 'A轴', 8000), boardNo: 'A-1' },
+    { ...board('middle', 2, '一区', 'A轴', 7000), boardNo: 'A-1' }
+  ]
+  const descending = sortBoardsForPacking(boards, rule)
+  const ascending = sortBoardsForPacking(boards, { ...rule, lengthSortDirection: 'asc' })
+  assert.deepEqual(
+    descending.map((row) => row.id),
+    ['long', 'middle', 'short']
+  )
+  assert.deepEqual(
+    ascending.map((row) => row.id),
+    ['short', 'middle', 'long']
+  )
+  assert.deepEqual(
+    boards.map((row) => row.id),
+    ['short', 'long', 'middle']
+  )
+  assert.deepEqual(
+    suggestPacks(boards, [], { ...rule, allowMixLength: true, maxStackHeight: 1000 }, true).flatMap(
+      (pack) => pack.items.map((item) => item.boardId)
+    ),
+    ['long', 'middle', 'short']
+  )
+})
+
+test('同区域同编号的不同长度可选择混合或分开打包', () => {
+  const boards = [
+    { ...board('long', 2, '一区', 'A轴', 8000), boardNo: 'A-1' },
+    { ...board('short', 2, '一区', 'A轴', 6000), boardNo: 'A-1' }
+  ]
+  const limits = { ...rule, maxStackHeight: 1000 }
+  const separated = suggestPacks(boards, [], limits, true)
+  const mixed = suggestPacks(boards, [], { ...limits, allowMixLength: true }, true)
+  assert.equal(separated.length, 2)
+  assert.equal(mixed.length, 1)
+  assert.deepEqual(
+    mixed[0].items.map((item) => item.boardId),
+    ['long', 'short']
+  )
+  assert.equal(validatePlan(boards, mixed, { ...limits, allowMixLength: true }), null)
+  assert.match(validatePlan(boards, mixed, limits) || '', /不同长度/)
+  assert.match(
+    validatePlan([boards[0], { ...boards[1], boardNo: 'A-2' }], mixed, {
+      ...limits,
+      sameNumber: false,
+      allowMixLength: true
+    }) || '',
+    /不同长度板材必须同编号/
+  )
+})
+
+test('混长兼容性检查覆盖包内全部明细，禁止不同编号借相同长度混长', () => {
+  const first = { ...board('first', 1, '一区', 'A轴', 8000), boardNo: 'A-1' }
+  const second = { ...board('second', 1, '一区', 'A轴', 8000), boardNo: 'A-2' }
+  const candidate = { ...board('third', 1, '一区', 'A轴', 6000), boardNo: 'A-1' }
+  const flexible = { ...rule, sameNumber: false, allowMixLength: true }
+  assert.equal(canPackBoardsTogether([first, second], candidate, flexible), false)
+  assert.match(
+    validatePlan(
+      [first, second, candidate],
+      [
+        {
+          packNo: 'P1',
+          manuallyAdjusted: true,
+          confirmed: false,
+          remark: '',
+          items: [
+            { boardId: first.id, pieces: 1, remark: '' },
+            { boardId: second.id, pieces: 1, remark: '' },
+            { boardId: candidate.id, pieces: 1, remark: '' }
+          ]
+        }
+      ],
+      flexible
+    ) || '',
+    /不同长度板材必须同编号/
+  )
 })
 
 test('手动排包仅处理所选明细，按规则块数与堆叠上限拆分', () => {

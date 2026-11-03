@@ -310,6 +310,8 @@ export interface MesWorkOrder {
   salesOrderQuantity: number | null
   completedQuantity: number
   warehousedQuantity: number
+  /** Derived for work order lists from order quantity minus posted finished inbound quantity. */
+  pendingInboundQuantity?: number
   finishedInboundMode?: 'order' | 'pack' | null
   finishedInboundAreaSqm?: number
   printCount: number

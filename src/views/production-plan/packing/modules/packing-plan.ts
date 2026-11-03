@@ -47,6 +47,20 @@ export function packTotals(pack: PackDraft, boards: WorkOrderBoard[]) {
   }
 }
 
+export function canPackBoardsTogether(
+  existingBoards: WorkOrderBoard[],
+  candidate: WorkOrderBoard,
+  rule: PackRule
+): boolean {
+  return existingBoards.every(
+    (board) =>
+      board.area === candidate.area &&
+      (!rule.sameNumber || board.boardNo === candidate.boardNo) &&
+      (board.lengthMm === candidate.lengthMm ||
+        (rule.allowMixLength && board.boardNo === candidate.boardNo))
+  )
+}
+
 export function validatePlan(
   boards: WorkOrderBoard[],
   packs: PackDraft[],
@@ -71,6 +85,17 @@ export function validatePlan(
       return `包号 ${pack.packNo} 混入不同编号的板材`
     if (!rule.allowMixLength && origins.some((board) => board?.lengthMm !== origins[0]?.lengthMm))
       return `包号 ${pack.packNo} 混入不同长度的板材`
+    if (
+      origins.some((board, index) =>
+        origins
+          .slice(0, index)
+          .some(
+            (earlier) =>
+              board?.lengthMm !== earlier?.lengthMm && board?.boardNo !== earlier?.boardNo
+          )
+      )
+    )
+      return `包号 ${pack.packNo} 的不同长度板材必须同编号`
     if (origins.some((board) => !board?.thicknessMm || board.thicknessMm <= 0))
       return `包号 ${pack.packNo} 的板材缺少有效板厚`
     if (
@@ -95,11 +120,19 @@ export function validatePlan(
   return null
 }
 
-const sortKeys: Record<string, keyof WorkOrderBoard> = {
-  area: 'area',
-  width: 'widthMm',
-  length: 'lengthMm',
-  boardNo: 'boardNo'
+export function sortBoardsForPacking(boards: WorkOrderBoard[], rule: PackRule): WorkOrderBoard[] {
+  const textCollator = new Intl.Collator('zh-CN', { numeric: true })
+  return [...boards].sort((a, b) => {
+    const areaOrder = textCollator.compare(a.area, b.area)
+    if (areaOrder) return areaOrder
+    const numberOrder = textCollator.compare(a.boardNo, b.boardNo)
+    if (numberOrder) return numberOrder
+    const lengthOrder = a.lengthMm - b.lengthMm
+    if (lengthOrder) return rule.lengthSortDirection === 'asc' ? lengthOrder : -lengthOrder
+    const widthOrder = a.widthMm - b.widthMm
+    if (widthOrder) return widthOrder
+    return textCollator.compare(a.id, b.id)
+  })
 }
 
 export function suggestPacks(
@@ -117,19 +150,10 @@ export function suggestPacks(
     items: pack.items.map((item) => ({ ...item }))
   }))
   const preservedPackNos = new Set(packs.map((pack) => pack.packNo))
-  const keys = rule.sortPriority
-    .split(',')
-    .map((key) => sortKeys[key])
-    .filter(Boolean)
-  const sorted = boards
-    .filter((board) => !selectedBoardIds || selectedBoardIds.has(board.id))
-    .sort((a, b) => {
-      for (const key of keys) {
-        const value = String(a[key]).localeCompare(String(b[key]), 'zh-CN', { numeric: true })
-        if (value) return value
-      }
-      return a.id.localeCompare(b.id)
-    })
+  const sorted = sortBoardsForPacking(
+    boards.filter((board) => !selectedBoardIds || selectedBoardIds.has(board.id)),
+    rule
+  )
   for (const board of sorted) {
     let remaining = remainingPieces(board, packs)
     if (
@@ -149,10 +173,19 @@ export function suggestPacks(
           return false
         const first = boards.find((item) => item.id === pack.items[0]?.boardId)
         return (
-          first?.area === board.area &&
-          (!rule.sameNumber || first.boardNo === board.boardNo) &&
-          (rule.remainderPolicy !== 'separate' || first.id === board.id) &&
-          (rule.allowMixLength || first.lengthMm === board.lengthMm)
+          first &&
+          canPackBoardsTogether(
+            pack.items.flatMap((item) => {
+              const origin = boards.find((entry) => entry.id === item.boardId)
+              return origin ? [origin] : []
+            }),
+            board,
+            rule
+          ) &&
+          // 混长模式允许同区域、同编号的尾数共包，即使尾数策略为“独立小包”。
+          (rule.remainderPolicy !== 'separate' ||
+            first.id === board.id ||
+            (rule.allowMixLength && first.boardNo === board.boardNo))
         )
       })
       if (rule.sameWidth)

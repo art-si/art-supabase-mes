@@ -4,6 +4,7 @@ import { hydrateMesWorkOrderMaterials } from './manufacturing'
 
 export type BoardKind = 'PU_BOARD' | 'ROCK_BOARD'
 export type RemainderPolicy = 'separate' | 'merge' | 'manual'
+export type LengthSortDirection = 'asc' | 'desc'
 export type PackingStatus = 'unpacked' | 'packed' | 'published'
 
 export interface PackRule {
@@ -21,6 +22,7 @@ export interface PackRule {
   sameArea: boolean
   sameNumber: boolean
   allowMixLength: boolean
+  lengthSortDirection: LengthSortDirection
   remainderPolicy: RemainderPolicy
   sortPriority: string
   remark: string

@@ -1,0 +1,1 @@
+import{s as e}from"./_baseForOwn-C20PPpDa.js";import{n as t}from"./isArrayLikeObject-Bhbv1HJP.js";import{a as n,t as r}from"./_baseOrderBy-DaCr4ceH.js";var i=t(function(t,i){if(t==null)return[];var a=i.length;return a>1&&n(t,i[0],i[1])?i=[]:a>2&&n(i[0],i[1],i[2])&&(i=[i[0]]),r(t,e(i,1),[])});export{i as t};

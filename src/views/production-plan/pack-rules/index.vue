@@ -5,7 +5,7 @@
         <BusinessWorkspaceHeader
           eyebrow="PACKING POLICY"
           title="排包规则"
-          description="按板材类型和板厚配置装包上限、同编号约束与尾数处理，供排包单生成方案。"
+          description="按板材类型和板厚配置装包上限、长度顺序与混包方式，供排包单生成方案。"
           icon="ri:archive-stack-line"
           :metrics="metrics"
           density="compact"
@@ -79,7 +79,17 @@
                   ><strong
                     >同区域{{ rule.sameNumber ? '、同编号' : ''
                     }}{{ rule.sameWidth ? '，同宽优先' : ''
-                    }}{{ rule.allowMixLength ? '，允许混长' : '，不可混长' }}</strong
+                    }}{{
+                      rule.allowMixLength ? '，同编号内不同长度混合式打包' : '，不同长度分开打包'
+                    }}</strong
+                  ></div
+                >
+                <div
+                  ><span>长度顺序</span
+                  ><strong
+                    >同区域、同编号内按长度{{
+                      rule.lengthSortDirection === 'asc' ? '升序' : '降序'
+                    }}</strong
                   ></div
                 >
                 <div

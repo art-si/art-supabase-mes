@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type {
   MesExecutionAttendance,
+  MesExecutionEvent,
   MesExecutionPerson,
   MesExecutionTask,
   MesProductionReport
@@ -72,6 +73,121 @@ test('shift achievement counts only approved good output', () => {
   assert.equal(center.taskCount, 1)
   assert.equal(center.achievedTaskCount, 0)
   assert.equal(center.achievedQuantity, 8)
+})
+
+test('shift exceptions keep event order per task and work date across multiple allocations', () => {
+  assert.deepEqual(
+    buildShiftAchievementRows(
+      [],
+      [],
+      [{ taskId: 'task-1', kind: 'exception', occurredAt: '2026-09-20' } as MesExecutionEvent],
+      ['2026-09-20', '2026-09-20']
+    ),
+    []
+  )
+  const first = {
+    ...task,
+    workCenter: { code: 'A', name: 'A 产线' },
+    allocations: [
+      {
+        id: 'a-day',
+        workCenterId: 'center-1',
+        shiftNameSnapshot: '白班',
+        quantity: 4,
+        plannedStartDate: '2026-09-20'
+      },
+      {
+        id: 'a-night',
+        workCenterId: 'center-1',
+        shiftNameSnapshot: '晚班',
+        quantity: 6,
+        plannedStartDate: '2026-09-20'
+      },
+      {
+        id: 'a-next',
+        workCenterId: 'center-1',
+        shiftNameSnapshot: '白班',
+        quantity: 3,
+        plannedStartDate: '2026-09-21'
+      },
+      {
+        id: 'a-invalid',
+        workCenterId: 'center-1',
+        shiftNameSnapshot: '白班',
+        quantity: 9,
+        plannedStartDate: 'invalid',
+        plannedEndDate: '2026-09-20'
+      },
+      {
+        id: 'a-empty',
+        workCenterId: 'center-1',
+        shiftNameSnapshot: '白班',
+        quantity: 9,
+        plannedStartDate: '',
+        plannedEndDate: ''
+      }
+    ]
+  } as MesExecutionTask
+  const second = {
+    ...task,
+    id: 'task-2',
+    taskNo: 'MO-002',
+    workCenter: { code: 'B', name: 'B 产线' },
+    allocations: [
+      {
+        id: 'b-day',
+        workCenterId: 'center-2',
+        shiftNameSnapshot: '白班',
+        quantity: 5,
+        plannedStartDate: '2026-09-20'
+      }
+    ]
+  } as MesExecutionTask
+  const event = (
+    taskId: string | null,
+    kind: MesExecutionEvent['kind'],
+    occurredAt: string,
+    title: string
+  ) => ({ taskId, kind, occurredAt, title }) as MesExecutionEvent
+  const events = [
+    event(first.id, 'exception', '2026-09-20', '首项异常'),
+    event(second.id, 'exception', '2026-09-20', '其他任务异常'),
+    event('task-outside', 'exception', '2026-09-20', '非当前任务不显示'),
+    event(first.id, 'andon', '2026-09-20', '安灯提醒'),
+    event(first.id, 'misc_report', '2026-09-20', '普通事件不显示'),
+    event(first.id, 'exception', '2026-09-21', '次日异常'),
+    event(first.id, 'exception', '2026-09-20', '末项异常'),
+    event(first.id, 'exception', 'invalid', '非法日期不显示'),
+    event(first.id, 'exception', '', '空日期不显示'),
+    event(null, 'exception', '2026-09-20', '无任务不显示')
+  ]
+  const rows = buildShiftAchievementRows(
+    [second, first],
+    [
+      { ...report, task: first, taskId: first.id, goodQuantity: 2 },
+      { ...report, task: first, taskId: first.id, status: 'pending', goodQuantity: 99 },
+      { ...report, task: second, taskId: second.id, workCenterId: 'center-2', goodQuantity: 3 }
+    ],
+    events,
+    ['2026-09-20', '2026-09-21']
+  )
+  assert.deepEqual(
+    rows.map((row) => [row.date, row.shift, row.task.id]),
+    [
+      ['2026-09-21', '白班', first.id],
+      ['2026-09-20', '白班', first.id],
+      ['2026-09-20', '晚班', first.id],
+      ['2026-09-20', '白班', second.id]
+    ]
+  )
+  assert.deepEqual(
+    rows.map((row) => row.exceptionRemark),
+    ['次日异常', '首项异常；安灯提醒；末项异常', '首项异常；安灯提醒；末项异常', '其他任务异常']
+  )
+  assert.deepEqual(
+    rows.map((row) => row.achievedQuantity),
+    [0, 2, 0, 3]
+  )
 })
 
 test('person efficiency merges overlapping attendance across reports', () => {

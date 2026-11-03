@@ -5,7 +5,7 @@
         icon="ri:archive-stack-line"
         eyebrow="PACKING POLICY"
         :title="model.ruleName || '排包规则'"
-        description="按板材类型和板厚配置装包上限、同编号约束与聚合顺序。"
+        description="按板材类型和板厚配置装包上限、同编号约束、长度顺序与混包方式。"
       />
       <ArtForm
         ref="formRef"
@@ -31,7 +31,11 @@
 
   const mesPackRuleBoardTypeOptions = useDictionaryOptions('mesPackRuleBoardType')
   const mesPackRuleSmallPackModeOptions = useDictionaryOptions('mesPackRuleSmallPackMode')
-  const mesPackRuleSortOrderOptions = useDictionaryOptions('mesPackRuleSortOrder')
+  const mesPackRuleLengthDirectionOptions = useDictionaryOptions('mesPackRuleLengthDirection')
+  const mesPackRuleLengthModeOptions = useDictionaryOptions(
+    'mesPackRuleLengthMode',
+    (value) => value === 'true'
+  )
 
   interface OpenData {
     tenantId: string
@@ -56,6 +60,7 @@
     sameArea: true,
     sameNumber: true,
     allowMixLength: false,
+    lengthSortDirection: 'desc',
     remainderPolicy: 'separate',
     sortPriority: 'area,boardNo,width,length',
     remark: ''
@@ -91,31 +96,38 @@
       props: { disabled: true }
     },
     { key: 'sameNumber', label: '同编号打包（不可跨编号）', type: 'switch' },
-    { key: 'allowMixLength', label: '允许混长', type: 'switch' },
+    {
+      key: 'lengthSortDirection',
+      label: '同区域、同编号的长度顺序',
+      type: 'radioGroup',
+      options: mesPackRuleLengthDirectionOptions,
+      help: '自动排包与批量排包按此顺序处理板材明细。'
+    },
+    {
+      key: 'allowMixLength',
+      label: '不同长度的打包方式',
+      type: 'radioGroup',
+      options: mesPackRuleLengthModeOptions,
+      help: '混合式打包可将同区域、同编号的不同长度板材放入同一包；分开打包则逐长度成包。'
+    },
     {
       key: 'remainderPolicy',
       label: '尾数处理',
       type: 'select',
       options: mesPackRuleSmallPackModeOptions
     },
-    {
-      key: 'sortPriority',
-      label: '聚合顺序',
-      type: 'select',
-      span: 24,
-      options: mesPackRuleSortOrderOptions
-    },
     { key: 'remark', label: '备注', type: 'textarea', span: 24, props: { rows: 2 } }
   ]
   const formRules = {
     ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
     maxPieces: [{ required: true, message: '请输入单包上限', trigger: 'change' }],
-    maxStackHeight: [{ required: true, message: '请输入堆叠上限', trigger: 'change' }]
+    maxStackHeight: [{ required: true, message: '请输入堆叠上限', trigger: 'change' }],
+    lengthSortDirection: [{ required: true, message: '请选择长度顺序', trigger: 'change' }]
   }
 
   async function handleOpen(data: OpenData): Promise<void> {
     editId.value = data.row?.id || ''
-    Object.assign(model.value, data.row ? cloneDeep(data.row) : initial(data.tenantId))
+    Object.assign(model.value, initial(data.tenantId), data.row ? cloneDeep(data.row) : {})
     model.value.sameArea = true
     await dialogRef.value?.handleOpen(data, {
       title: editId.value ? '编辑排包规则' : '新增排包规则',

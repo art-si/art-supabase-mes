@@ -14,7 +14,7 @@
         <template #actions>
           <ElButton
             v-auth="'MesPacking:Auto'"
-            :disabled="!selectedOrder || !boards.length || busy || isPublished"
+            :disabled="!selectedOrder || !boards.length || mutationBlocked || isPublished"
             @click="autoPack"
           >
             <ArtSvgIcon icon="ri:magic-line" />自动排包
@@ -23,7 +23,9 @@
             v-auth="'MesPacking:Save'"
             type="primary"
             :loading="busy"
-            :disabled="!selectedOrder || (!dirty && !needsRuleBinding) || isPublished"
+            :disabled="
+              !selectedOrder || (!dirty && !needsRuleBinding) || mutationBlocked || isPublished
+            "
             @click="save"
           >
             <ArtSvgIcon icon="ri:save-line" />保存数据
@@ -36,7 +38,7 @@
               !selectedOrder.packingRuleId ||
               needsRuleBinding ||
               dirty ||
-              busy ||
+              mutationBlocked ||
               isPublished
             "
             :title="
@@ -50,7 +52,7 @@
           </ElButton>
           <ElButton
             v-auth="'MesPacking:Repack'"
-            :disabled="!selectedOrder || busy || !isPublished"
+            :disabled="!selectedOrder || mutationBlocked || !isPublished"
             :title="
               packs.some((pack) => pack.inboundAt)
                 ? '已入库包保持锁定，可继续调整未入库部分'
@@ -76,7 +78,7 @@
             scrollbar-always
             class="packing-page__orders"
             title="待排生产工单"
-            :subtitle="`需排包工单 · 当前 ${visibleOrders.length} 单`"
+            :subtitle="`${includePublished ? '全部排包工单' : '未发布工单'} · 当前 ${visibleOrders.length} 单`"
             :loading="loading"
             :error="error"
             :empty="!loading && !error && !orders.length"
@@ -104,7 +106,7 @@
                   clearable
                   aria-label="要求开工日期区间"
                 />
-                <ElCheckbox v-model="includePacked">包含已排包和已发布</ElCheckbox>
+                <ElCheckbox v-model="includePublished">包含已发布工单</ElCheckbox>
               </div></template
             >
             <div v-if="visibleOrders.length" class="packing-page__order-list">
@@ -126,7 +128,9 @@
                 @keydown.alt.enter.prevent="viewWorkOrder(order)"
               >
                 <span class="packing-page__order-top">
-                  <strong>{{ order.workOrderNo }}</strong>
+                  <strong class="min-w-0 truncate" :title="order.workOrderNo">{{
+                    order.workOrderNo
+                  }}</strong>
                   <ElTag v-if="workOrderDetail.openingId === order.id" size="small" type="info"
                     >加载中</ElTag
                   >
@@ -143,15 +147,19 @@
                   }}/{{ order.boardPieces }} 块</span
                 >
                 <span class="packing-page__order-bottom">
-                  <span>{{ order.projectNameSnapshot || '未关联项目' }}</span>
-                  <time>{{ order.plannedStartDate || '未设开工日' }}</time>
+                  <span class="min-w-0" :title="order.projectNameSnapshot || '未关联项目'">{{
+                    order.projectNameSnapshot || '未关联项目'
+                  }}</span>
+                  <time class="shrink-0 whitespace-nowrap tabular-nums">{{
+                    order.plannedStartDate || '未设开工日'
+                  }}</time>
                 </span>
               </button>
             </div>
             <ArtEmptyState
               v-else-if="!loading && !error"
               title="当前条件下没有工单"
-              description="可清除日期或勾选已排包后重试。"
+              description="可清除查询条件，或勾选“包含已发布工单”后重试。"
               size="compact"
             />
             <template #footer
@@ -243,7 +251,7 @@
                   <ArtTable
                     ref="boardTableRef"
                     :fixed-column-min-width="0"
-                    :data="boards"
+                    :data="orderedBoards"
                     :columns="boardColumns"
                     :pagination="false"
                     :row-class-name="boardRowClass"
@@ -324,6 +332,20 @@
                 "
                 @click="splitPack"
                 ><ArtSvgIcon icon="ri:git-branch-line" />拆包</ElButton
+              >
+              <ElButton
+                v-auth="'MesPacking:Manual'"
+                size="small"
+                type="danger"
+                plain
+                :disabled="!canRemoveSelected"
+                :title="
+                  selectedResultRows.some((row) => row.pack.inboundAt)
+                    ? '已入库明细不可移出，请取消勾选后重试'
+                    : '将勾选明细移回待排板材，保存后生效'
+                "
+                @click="removeSelectedItems"
+                ><ArtSvgIcon icon="ri:subtract-line" />批量移出</ElButton
               >
               <ElButton v-if="activeBoardId" size="small" @click="clearBoardFilter"
                 ><ArtSvgIcon icon="ri:filter-off-line" />全部明细</ElButton
@@ -462,7 +484,7 @@
             <div class="packing-page__result-note">
               {{
                 selectedPack ? `并入目标：${selectedPack.packNo} · ` : '点击包号设置并入目标 · '
-              }}合包按整包，拆包按勾选明细
+              }}合包按整包，拆包和批量移出按勾选明细
               <ElButton
                 v-if="selectedPack"
                 link
@@ -490,8 +512,7 @@
   import type { ColumnOption } from '@/types'
   import PackingPrintDialog from './modules/packing-print-dialog.vue'
   import type { PackingPrintMode } from './modules/packing-print'
-  import dayjs from 'dayjs'
-  import { cloneDeep, uniq } from 'lodash-es'
+  import { cloneDeep, sortBy, uniq } from 'lodash-es'
   import { storeToRefs } from 'pinia'
   import { useRouter } from 'vue-router'
   import ArtSvgIcon from '@/components/core/base/art-svg-icon/index.vue'
@@ -525,6 +546,7 @@
     nextPackNo,
     packTotals,
     remainingPieces,
+    sortBoardsForPacking,
     suggestPacks,
     validatePlan
   } from './modules/packing-plan'
@@ -553,17 +575,19 @@
     () => import('../../components/manufacturing/modules/work-order-dialog.vue')
   )
   const workOrderDialogRef = ref<{ handleOpen: (data: WorkOrderDialogOpenData) => Promise<void> }>()
-  const canManual = computed(() => hasAuth('MesPacking:Manual') && !isPublished.value)
+  const mutationBlocked = computed(
+    () => busy.value || loading.value || detailLoading.value || Boolean(detailError.value)
+  )
+  const canManual = computed(
+    () => hasAuth('MesPacking:Manual') && !isPublished.value && !mutationBlocked.value
+  )
   const orders = ref<Order[]>([])
   const rules = ref<PackRule[]>([])
   const selectedRuleId = ref('')
   const orderId = ref('')
   const keyword = ref('')
-  const startDates = ref<string[]>([
-    dayjs().format('YYYY-MM-DD'),
-    dayjs().add(2, 'day').format('YYYY-MM-DD')
-  ])
-  const includePacked = ref(false)
+  const startDates = ref<string[]>([])
+  const includePublished = ref(false)
   const boards = ref<WorkOrderBoard[]>([])
   const packs = ref<PackDraft[]>([])
   const selectedBoards = ref<WorkOrderBoard[]>([])
@@ -579,7 +603,7 @@
   }
   const boardColumns: ColumnOption<WorkOrderBoard>[] = [
     { type: 'selection', width: 36 },
-    { prop: 'area', label: '区域', width: 62, showOverflowTooltip: true },
+    { prop: 'area', label: '区域', minWidth: 120, showOverflowTooltip: true },
     { prop: 'boardNo', label: '编号', width: 76, showOverflowTooltip: true },
     { prop: 'lengthMm', label: '长度 mm', width: 88, align: 'right' },
     { prop: 'pieces', label: '块数', width: 56, align: 'right' },
@@ -603,19 +627,19 @@
   ]
   const resultColumns: ColumnOption<PackingResultRow>[] = [
     { type: 'selection', width: 36 },
-    { prop: 'packNo', label: '包号', minWidth: 190, useSlot: true },
-    { prop: 'inboundStatus', label: '入库状态', width: 86, useSlot: true },
+    { prop: 'packNo', label: '包号', minWidth: 120, useSlot: true },
+    { prop: 'inboundStatus', label: '入库状态', width: 120, useSlot: true },
     {
       prop: 'inboundAreaSqm',
       label: '入库面积 ㎡',
-      width: 106,
+      minWidth: 120,
       align: 'right',
       formatter: (row) => Number(row.pack.inboundAreaSqm || 0).toFixed(2)
     },
     {
       prop: 'area',
       label: '区域',
-      minWidth: 62,
+      minWidth: 120,
       formatter: (row) => row.board?.area || '—',
       showOverflowTooltip: true
     },
@@ -654,10 +678,16 @@
   const activeBoard = computed(() => boardById(activeBoardId.value))
   const resultTableRef = ref<ArtTableExpose>()
   const selectedResultRows = ref<PackingResultRow[]>([])
+  const canRemoveSelected = computed(
+    () =>
+      canManual.value &&
+      selectedResultRows.value.length > 0 &&
+      selectedResultRows.value.every((row) => !row.pack.inboundAt)
+  )
   const emptyPacks = computed(() => packs.value.filter((pack) => !pack.items.length))
   const resultRows = computed<PackingResultRow[]>(() =>
     packs.value.flatMap((pack) =>
-      pack.items
+      sortBy(pack.items, (item) => boardOrder.value.get(item.boardId))
         .filter((item) => !activeBoardId.value || item.boardId === activeBoardId.value)
         .map((item) => ({
           key: `${pack.id || pack.packNo}:${item.boardId}`,
@@ -745,8 +775,7 @@
     const needle = keyword.value.trim().toLocaleLowerCase()
     const [from, to] = startDates.value || []
     return orders.value.filter((order) => {
-      if (!includePacked.value && order.packingStatus !== 'unpacked' && order.id !== orderId.value)
-        return false
+      if (!includePublished.value && order.packingStatus === 'published') return false
       if (from && (!order.plannedStartDate || order.plannedStartDate < from)) return false
       if (to && (!order.plannedStartDate || order.plannedStartDate > to)) return false
       if (!needle) return true
@@ -785,6 +814,12 @@
   })
   const selectedRule = computed(() =>
     scopedRules.value.find((rule) => rule.id === selectedRuleId.value)
+  )
+  const orderedBoards = computed(() =>
+    selectedRule.value ? sortBoardsForPacking(boards.value, selectedRule.value) : boards.value
+  )
+  const boardOrder = computed(
+    () => new Map(orderedBoards.value.map((board, index) => [board.id, index]))
   )
   const remaining = (board: WorkOrderBoard): number => remainingPieces(board, packs.value)
   const packed = (board: WorkOrderBoard): number => board.pieces - remaining(board)
@@ -952,6 +987,9 @@
   }
   function markManual(pack: PackDraft): void {
     if (pack.inboundAt) return
+    if (selectedRule.value) {
+      pack.items = sortBy(pack.items, (item) => boardOrder.value.get(item.boardId))
+    }
     pack.manuallyAdjusted = true
     pack.confirmed = false
     dirty.value = true
@@ -968,16 +1006,6 @@
       return
     }
     if (amount < 1) return
-    const first = boardById(pack.items[0]?.boardId)
-    if (
-      first &&
-      (first.area !== board.area ||
-        (rule.sameNumber && first.boardNo !== board.boardNo) ||
-        (!rule.allowMixLength && first.lengthMm !== board.lengthMm))
-    ) {
-      ElMessage.warning('所选板材不符合该规则的区域、编号或长度约束')
-      return
-    }
     if (rule.boardThicknessMm && board.thicknessMm !== rule.boardThicknessMm) {
       ElMessage.warning('板材板厚与所选排包规则不符')
       return
@@ -1003,9 +1031,16 @@
       ElMessage.warning('当前包已达到规则上限，请新建包')
       return
     }
-    const item = pack.items.find((entry) => entry.boardId === board.id)
+    const proposed = cloneDeep(pack)
+    const item = proposed.items.find((entry) => entry.boardId === board.id)
     if (item) item.pieces += capacity
-    else pack.items.push({ boardId: board.id, pieces: capacity, remark: '' })
+    else proposed.items.push({ boardId: board.id, pieces: capacity, remark: '' })
+    const issue = validatePlan(boards.value, [proposed], rule)
+    if (issue) {
+      ElMessage.warning(issue)
+      return
+    }
+    pack.items = proposed.items
     markManual(pack)
     if (capacity < amount) ElMessage.info(`本包排入 ${capacity} 块，其余可继续新建包`)
   }
@@ -1049,7 +1084,13 @@
   function mergeSelected(): void {
     if (!canManual.value) return
     if (!selectedPack.value) return
-    selectedBoards.value.forEach((board) => addPieces(board, selectedPack.value!))
+    if (!selectedRule.value) {
+      ElMessage.warning('请先选择排包规则')
+      return
+    }
+    sortBoardsForPacking(selectedBoards.value, selectedRule.value).forEach((board) =>
+      addPieces(board, selectedPack.value!)
+    )
     boardTableRef.value?.elTableRef?.clearSelection()
   }
   function addBoard(row: Record<string, unknown>): void {
@@ -1084,6 +1125,12 @@
       selectedPack.value = null
     } else markManual(pack)
     dirty.value = true
+  }
+  function removeSelectedItems(): void {
+    if (!canRemoveSelected.value) return
+    const rows = [...selectedResultRows.value]
+    for (const row of rows) removeItem(row.pack, row.item.boardId)
+    ElMessage.success(`已移出 ${rows.length} 行明细，可继续排包，保存后生效`)
   }
   function mergePacks(): void {
     if (
@@ -1172,7 +1219,7 @@
   }
   async function autoPack(): Promise<void> {
     const order = selectedOrder.value
-    if (!hasAuth('MesPacking:Auto') || isPublished.value || !order) return
+    if (!hasAuth('MesPacking:Auto') || isPublished.value || mutationBlocked.value || !order) return
     const rule = selectedRule.value
     if (!rule) {
       ElMessage.warning('当前租户尚未启用板材排包规则')
@@ -1211,7 +1258,7 @@
   async function save(): Promise<void> {
     if (
       !selectedOrder.value ||
-      busy.value ||
+      mutationBlocked.value ||
       isPublished.value ||
       !hasAuth('MesPacking:Save') ||
       (!dirty.value && !needsRuleBinding.value)
@@ -1243,7 +1290,7 @@
     if (
       !selectedOrder.value ||
       !hasAuth('MesPacking:Publish') ||
-      busy.value ||
+      mutationBlocked.value ||
       dirty.value ||
       isPublished.value ||
       !selectedOrder.value.packingRuleId ||
@@ -1271,7 +1318,12 @@
     }
   }
   async function repack(): Promise<void> {
-    if (!selectedOrder.value || !hasAuth('MesPacking:Repack') || busy.value || !isPublished.value)
+    if (
+      !selectedOrder.value ||
+      !hasAuth('MesPacking:Repack') ||
+      mutationBlocked.value ||
+      !isPublished.value
+    )
       return
     try {
       await confirm('重排包后可调整未入库部分；已入库包及其板材生产资料保持锁定。是否继续？', {

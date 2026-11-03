@@ -28,6 +28,9 @@ importers:
       dayjs:
         specifier: ^1.11.23
         version: 1.11.23
+      decimal.js-light:
+        specifier: ^2.5.1
+        version: 2.5.1
       element-plus:
         specifier: 2.14.7
         version: 2.14.7(patch_hash=21265bd6eb1ae41a2cea802f3d030fc829f8a4710c238ef0c03526c29d0ef78f)(vue@3.5.43(typescript@6.0.3))

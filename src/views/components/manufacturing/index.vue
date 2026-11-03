@@ -162,7 +162,7 @@
   import MasterDataDeleteGuard from '@/components/business/master-data-delete-guard/index.vue'
 
   import { toTenantSelectOptions } from '@/utils/tenant-display'
-  import { createDateTimeFormatter } from '@/utils/ui/format'
+  import { createDateTimeFormatter, formatNumberValue } from '@/utils/ui/format'
 
   import dayjs from 'dayjs'
   import { ElMessage } from 'element-plus'
@@ -250,6 +250,8 @@
     emptyText: '--',
     invalidText: '--'
   })
+  const formatWorkOrderQuantity = (quantity: number, unit: string) =>
+    `${formatNumberValue(quantity, 'zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${unit || ''}`
 
   defineOptions({ name: 'MesManufacturing' })
   const declaredPermissions = [
@@ -757,6 +759,8 @@
               { key: 'materialCodeSnapshot', title: '物料编码' },
               { key: 'materialDescription', title: '物料描述' },
               { key: 'orderQuantity', title: '工单数量' },
+              { key: 'warehousedQuantity', title: '已入库数量' },
+              { key: 'pendingInboundQuantity', title: '未入库数量' },
               { key: 'plannedEndDate', title: '计划结束' },
               { key: 'status', title: '状态' }
             ]
@@ -1002,7 +1006,21 @@
       label: '工单数量',
       width: 112,
       align: 'right',
-      formatter: (row) => `${Number(row.orderQuantity).toFixed(2)} ${row.unitSnapshot || ''}`
+      formatter: (row) => formatWorkOrderQuantity(row.orderQuantity, row.unitSnapshot)
+    },
+    {
+      prop: 'warehousedQuantity',
+      label: '已入库数量',
+      width: 120,
+      align: 'right',
+      formatter: (row) => formatWorkOrderQuantity(row.warehousedQuantity, row.unitSnapshot)
+    },
+    {
+      prop: 'pendingInboundQuantity',
+      label: '未入库数量',
+      width: 120,
+      align: 'right',
+      formatter: (row) => formatWorkOrderQuantity(row.pendingInboundQuantity ?? 0, row.unitSnapshot)
     },
     { prop: 'plannedEndDate', label: '计划结束', width: 116 },
     { prop: 'printCount', label: '打印次数', width: 96, align: 'right' },

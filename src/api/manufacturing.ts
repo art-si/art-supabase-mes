@@ -6,6 +6,7 @@ import { normalizeNullableText } from '@/utils/form/normalize'
 import { buildOrIlikeFilter } from '@/utils/supabase/search'
 import { buildSupabasePageRange, fetchAllRangePages } from '@/utils/supabase/pagination'
 import { createPollingSubscription } from '@/utils/polling-subscription'
+import { calculatePendingInboundQuantity } from './manufacturing-quantity'
 import type {
   MesListQuery,
   MesBatchResult,
@@ -123,6 +124,10 @@ export async function fetchWorkOrders(
   return {
     data: (await hydrateMesWorkOrderMaterials(data ?? [], options)).map((row) => ({
       ...row,
+      pendingInboundQuantity: calculatePendingInboundQuantity(
+        row.orderQuantity,
+        row.warehousedQuantity
+      ),
       details: [...(row.details ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
     })),
     total: total ?? 0
