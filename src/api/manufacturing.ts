@@ -32,6 +32,7 @@ import type {
   MesSchedulingContext,
   MesWorkOrder,
   MesWorkOrderBomIssueTotal,
+  MesWorkOrderIssueHistoryItem,
   MesWorkOrderBomSnapshot,
   MesWorkOrderRouteSnapshot,
   MesWorkOrderSnapshotReferences,
@@ -63,6 +64,98 @@ export async function fetchWorkOrderBomIssueTotals(
     { ...readOptions, showErrorMessage: false, errorMessage: '工单领料数量加载失败，请重试' }
   )
   return data ?? []
+}
+
+interface WorkOrderIssueLineRow {
+  id: string
+  tenantId: string
+  fulfilledQuantity: number
+  batchNo: string | null
+  sourceLineNo: string | null
+  returnType: string | null
+  remark: string | null
+  movement: { id: string; workOrderId: string; occurredAt: string }
+  document: {
+    kind: 'issue' | 'return'
+    documentNo: string
+    businessDate: string
+  }
+  material: { materialCode: string; materialName: string } | null
+  warehouse: { warehouseName: string } | null
+  bin: { binName: string } | null
+  unit: { unitName: string } | null
+}
+
+export async function fetchWorkOrderIssueHistory(params: {
+  tenantId: string
+  workOrderId: string
+  current: number
+  size: number
+  signal: AbortSignal
+}): Promise<{ data: MesWorkOrderIssueHistoryItem[]; total: number }> {
+  const pageRange = buildSupabasePageRange(params)
+  const { data, total } = await responseHandle<WorkOrderIssueLineRow[]>(
+    () =>
+      supabase
+        .from('wms_production_material_line')
+        .select(
+          'id,tenant_id,fulfilled_quantity,batch_no,source_line_no,return_type,remark,movement:wms_inventory_movement!wms_production_material_line_movement_id_fkey!inner(id,work_order_id,occurred_at),document:wms_production_material_document!wms_production_material_line_document_fk!inner(kind,document_no,business_date),material:mdm_material!wms_production_material_line_material_id_fkey(material_code,material_name),warehouse:mdm_warehouse!wms_production_material_line_warehouse_id_fkey(warehouse_name),bin:mdm_warehouse_bin!wms_production_material_line_bin_id_fkey(bin_name),unit:mdm_unit_of_measure!wms_production_material_line_inventory_unit_id_fkey(unit_name)',
+          { count: 'exact' }
+        )
+        .eq('tenant_id', params.tenantId)
+        .eq('movement.work_order_id', params.workOrderId)
+        .in('document.kind', ['issue', 'return'])
+        .neq('fulfilled_quantity', 0)
+        .order('movement(occurred_at)', { ascending: false })
+        .order('id', { ascending: false })
+        .range(pageRange.from, pageRange.to)
+        .abortSignal(params.signal),
+    { ...readOptions, showErrorMessage: false, errorMessage: '工单领用流水加载失败，请重试' }
+  )
+  if (data !== null && !Array.isArray(data)) {
+    throw new Error('工单领用流水格式异常，请刷新后重试')
+  }
+  const lines = data ?? []
+  const rowTotal = total ?? 0
+  if (
+    !Number.isSafeInteger(rowTotal) ||
+    rowTotal < 0 ||
+    lines.length > params.size ||
+    lines.some(
+      (line) =>
+        !line ||
+        typeof line.id !== 'string' ||
+        line.tenantId !== params.tenantId ||
+        line.movement?.workOrderId !== params.workOrderId ||
+        !['issue', 'return'].includes(line.document?.kind) ||
+        !Number.isFinite(Number(line.fulfilledQuantity)) ||
+        Number(line.fulfilledQuantity) === 0
+    ) ||
+    (lines.length > 0 && rowTotal < pageRange.from + lines.length)
+  ) {
+    throw new Error('工单领用流水分页结果异常，请刷新后重试')
+  }
+  return {
+    data: lines.map((line) => ({
+      id: line.id,
+      movementId: line.movement.id,
+      occurredAt: line.movement.occurredAt,
+      kind: line.document.kind,
+      documentNo: line.document.documentNo,
+      businessDate: line.document.businessDate,
+      materialCode: line.material?.materialCode || '—',
+      materialName: line.material?.materialName || '—',
+      batchNo: line.batchNo,
+      warehouseName: line.warehouse?.warehouseName || '—',
+      binName: line.bin?.binName || null,
+      quantity: Math.abs(Number(line.fulfilledQuantity || 0)),
+      unitName: line.unit?.unitName || '—',
+      returnType: line.returnType,
+      sourceLineNo: line.sourceLineNo,
+      remark: line.remark
+    })),
+    total: rowTotal
+  }
 }
 
 export async function fetchWorkOrders(

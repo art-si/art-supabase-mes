@@ -45,6 +45,14 @@
             :default-width-mm="selectedMaterial?.widthMm"
           />
         </template>
+        <template v-for="tab in productionDataTabs" :key="tab.key" #[tab.key]>
+          <WorkOrderRelatedPanel
+            v-if="activeFormTab === tab.key"
+            :record="detailRecord"
+            :mode="tab.key"
+            is-read-only
+          />
+        </template>
       </WorkOrderDetail>
       <ArtForm
         v-if="!readonly"
@@ -107,6 +115,13 @@
             :default-width-mm="selectedMaterial?.widthMm"
           />
         </template>
+        <template v-for="tab in productionDataTabs" :key="tab.key" #[`${tab.key}Content`]>
+          <WorkOrderRelatedPanel
+            v-if="activeFormTab === tab.key"
+            :record="detailRecord"
+            :mode="tab.key"
+          />
+        </template>
       </ArtForm>
     </div>
   </ArtDialog>
@@ -142,6 +157,7 @@
   import WorkOrderUrgencySegmented from './work-order-urgency-segmented.vue'
   import WorkOrderStatusTag from './work-order-status-tag.vue'
   import WorkOrderDetails, { type WorkOrderDetailDraft } from './work-order-details.vue'
+  import WorkOrderRelatedPanel, { type WorkOrderRelatedMode } from './work-order-related-panel.vue'
   import {
     calculatePlanFromEnd,
     calculatePlanFromStart,
@@ -190,6 +206,11 @@
   const dialogRef = ref<ArtDialogExpose<WorkOrderDialogOpenData>>()
   const formRef = ref<InstanceType<typeof ArtForm>>()
   const activeFormTab = ref('identity')
+  const productionDataTabs: Array<{ key: WorkOrderRelatedMode; label: string }> = [
+    { key: 'bom', label: 'BOM组件' },
+    { key: 'route', label: '工艺路线' },
+    { key: 'issues', label: '领用流水' }
+  ]
   const references = ref<MesReferences>({
     materials: [],
     customers: [],
@@ -601,7 +622,11 @@
       type: 'tab',
       description: '按区域维护尺寸与块数，面积自动汇总到工单数量。'
     },
-    { key: 'productionDetails', label: '', type: 'slot', span: 24 }
+    { key: 'productionDetails', label: '', type: 'slot', span: 24 },
+    ...productionDataTabs.flatMap<FormItem>((tab) => [
+      { key: tab.key, label: tab.label, type: 'tab' },
+      { key: `${tab.key}Content`, label: '', type: 'slot', span: 24 }
+    ])
   ])
   const rules = {
     tenantId: [{ required: true, message: '请选择所属租户', trigger: 'change' }],

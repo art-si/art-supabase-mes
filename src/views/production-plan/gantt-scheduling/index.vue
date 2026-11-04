@@ -333,10 +333,7 @@
     completionStatuses: ['unfinished', 'partial', 'completed'],
     showQuantities: false
   })
-  const directionOptions = [
-    { label: '顺排', value: 'forward' },
-    { label: '倒排', value: 'backward' }
-  ]
+  const directionOptions = useDictionaryOptions('mesSchedulingDirection')
   const workspaceTags: BusinessWorkspaceTag[] = [
     { label: '车间级联', type: 'primary' },
     { label: '班次产能', type: 'warning' },

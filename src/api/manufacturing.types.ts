@@ -168,6 +168,26 @@ export interface MesWorkOrderBomIssueTotal {
   incomingDefectReturnQuantity: number
 }
 
+/** A posted issue or return line linked to this work order's inventory movement. */
+export interface MesWorkOrderIssueHistoryItem {
+  id: string
+  movementId: string
+  occurredAt: string
+  kind: 'issue' | 'return'
+  documentNo: string
+  businessDate: string
+  materialCode: string
+  materialName: string
+  batchNo: string | null
+  warehouseName: string
+  binName: string | null
+  quantity: number
+  unitName: string
+  returnType: string | null
+  sourceLineNo: string | null
+  remark: string | null
+}
+
 export interface MesWorkOrderBomSnapshot {
   id: string
   bomCode: string

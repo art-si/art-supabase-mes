@@ -23,6 +23,11 @@
       <ElTabPane v-if="$slots.details" name="details" label="生产明细"
         ><slot name="details"
       /></ElTabPane>
+      <ElTabPane v-if="$slots.bom" name="bom" label="BOM组件"><slot name="bom" /></ElTabPane>
+      <ElTabPane v-if="$slots.route" name="route" label="工艺路线"><slot name="route" /></ElTabPane>
+      <ElTabPane v-if="$slots.issues" name="issues" label="领用流水"
+        ><slot name="issues"
+      /></ElTabPane>
     </ElTabs>
     <WorkOrderPackInboundDialog ref="packInboundDialogRef" />
   </div>
