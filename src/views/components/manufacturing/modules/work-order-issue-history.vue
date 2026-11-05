@@ -16,6 +16,9 @@
         刷新
       </ElButton>
     </template>
+    <p v-if="rows.length" class="mb-2 text-xs leading-5 text-g-700 sm:hidden">
+      左右滑动表格，查看更多列
+    </p>
     <ArtTable
       v-if="rows.length"
       :data="rows"
