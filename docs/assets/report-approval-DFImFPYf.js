@@ -1,1 +1,0 @@
-import{et as e,kt as t,lt as n}from"./dist-DOTv3Dg2.js";import{t as r}from"./report-ledger-BavO1GC8.js";var i=n({name:`MesReportApproval`,__name:`index`,setup(n){return(n,i)=>(t(),e(r,{mode:`approval`}))}});export{i as default};
