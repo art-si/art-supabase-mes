@@ -642,7 +642,7 @@ export async function scheduleOperationTask(input: MesOperationTaskScheduleInput
 
 export async function confirmOperationTaskSchedule(
   input: MesOperationTaskScheduleInput & { quantity: number; shiftScheduleId?: string | null },
-  options?: { showMessage?: boolean }
+  options?: Pick<ApiFeedbackOptions, 'showMessage' | 'showErrorMessage'>
 ) {
   const { data } = await responseHandle<MesOperationTaskAllocationResult>(
     () =>
@@ -658,6 +658,7 @@ export async function confirmOperationTaskSchedule(
       ...writeOptions,
       requireAffected: false,
       showMessage: options?.showMessage ?? true,
+      showErrorMessage: options?.showErrorMessage ?? true,
       message: '排产已确认'
     }
   )

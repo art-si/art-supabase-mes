@@ -177,7 +177,9 @@
             <span v-auth="'MesOperationTask:Schedule'">
               <ArtExcelImport
                 icon="ri:file-upload-line"
+                :disabled="state.loading || Boolean(state.error)"
                 :button-props="{ link: true, loading: state.importing }"
+                :context-key="scheduleImportContextKey"
                 @import-success="handleScheduleImport"
                 @import-error="handleImportError"
                 >导入</ArtExcelImport
@@ -198,7 +200,8 @@
 
 <script setup lang="tsx">
   import dayjs from 'dayjs'
-  import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+  import { groupBy } from 'lodash-es'
+  import { computed, onDeactivated, onUnmounted, reactive, ref, watch } from 'vue'
   import { useDebounceFn } from '@vueuse/core'
   import { ElMessage } from 'element-plus'
   import { useRouter } from 'vue-router'
@@ -220,10 +223,14 @@
     type BusinessWorkspaceTag
   } from '@/components/business/business-workspace-header/index.vue'
   import { useArtFeedback } from '@/hooks/core/useArtFeedback'
+  import { useAuth } from '@/hooks/core/useAuth'
+  import { useTenantOperationGuard } from '@/hooks/core/useTenantOperationGuard'
   import { useWorkspaceFocus } from '@/hooks/core/useWorkspaceFocus'
   import { useTenantScopeStore } from '@/store/modules/tenant-scope'
   import type { ColumnOption } from '@/types'
   import TreeUtils from '@/utils/tree'
+  import { requireUniqueImportReference } from '@/utils/business/import-reference'
+  import { getFriendlySupabaseErrorMessage } from '@/utils/supabase'
   import {
     batchTransitionOperationTasks,
     confirmOperationTaskSchedule,
@@ -289,6 +296,8 @@
   const { effectiveTenantId } = storeToRefs(tenantScopeStore)
   const { focusMode } = useWorkspaceFocus()
   const { confirmAction } = useArtFeedback()
+  const { hasAuth } = useAuth()
+  const captureScheduleOperation = useTenantOperationGuard('MesOperationTask:Schedule')
   const taskTableRef = ref<ArtTableExpose>()
   const allocationDialogRef = ref<{
     handleOpen: (data: AverageAllocationDialogOpenData) => Promise<void>
@@ -326,6 +335,26 @@
     trackingCustomerKeyword: '',
     schedulingStatus: ''
   })
+  const scheduleImportContextKey = computed(() => ({
+    departmentId: filters.departmentId,
+    shiftScheduleId: filters.shiftScheduleId,
+    canSchedule: hasAuth('MesOperationTask:Schedule')
+  }))
+  let scheduleImportVersion = 0
+  const activeScheduleOperation = ref<(() => boolean) | null>(null)
+  function invalidateScheduleImport(): void {
+    scheduleImportVersion += 1
+    activeScheduleOperation.value = null
+    state.importing = false
+  }
+  watch(
+    () => activeScheduleOperation.value?.(),
+    (current, previous) => {
+      if (previous && current === false) invalidateScheduleImport()
+    },
+    { flush: 'sync' }
+  )
+  onDeactivated(invalidateScheduleImport)
   const drafts = reactive<Record<string, ScheduleDraft>>({})
   const selectedRows = ref<MesOperationTask[]>([])
   const taskSort = reactive<{
@@ -970,24 +999,59 @@
     return key ? String(row[key] ?? '').trim() : ''
   }
   async function handleScheduleImport(rows: Array<Record<string, unknown>>): Promise<void> {
+    if (state.importing) return
+    if (state.loading || state.error) {
+      ElMessage.warning('排产数据尚未就绪，请刷新数据后重新导入')
+      return
+    }
+    const operationCurrent = captureScheduleOperation()
+    const businessContext = scheduleImportContextKey.value
+    const tasks = state.tasks
+    const workCenters = state.workCenters
+    const version = ++scheduleImportVersion
+    const isCurrent = () =>
+      version === scheduleImportVersion &&
+      operationCurrent() &&
+      scheduleImportContextKey.value === businessContext &&
+      !disposed
+    if (!isCurrent()) return
     if (!rows.length) {
       ElMessage.warning('导入文件中没有可处理的数据')
       return
     }
     state.importing = true
+    activeScheduleOperation.value = isCurrent
     try {
       let successCount = 0
       const failures: string[] = []
+      const tasksByNo = new Map(Object.entries(groupBy(tasks, 'taskNo')))
+      const centersByTenant = new Map(Object.entries(groupBy(workCenters, 'tenantId')))
       for (const [index, imported] of rows.entries()) {
+        if (!isCurrent()) return
         const taskNo = readImportCell(imported, ['任务单号', 'taskNo'])
         const centerCode = readImportCell(imported, ['工作中心编号', 'workCenterCode'])
         const quantity = Number(readImportCell(imported, ['排产数量', 'quantity']))
-        const task = state.tasks.find((item) => item.taskNo === taskNo)
-        const center = state.workCenters.find(
-          (item) => item.code === centerCode || item.name === centerCode
-        )
-        if (!task || !center || !Number.isFinite(quantity) || quantity <= 0) {
+        if (!taskNo || !centerCode || !Number.isFinite(quantity) || quantity <= 0) {
           failures.push(`第 ${index + 2} 行任务、工作中心或数量无效`)
+          continue
+        }
+        let task: MesOperationTask
+        let center: MesProductionScopeCenter
+        try {
+          task = requireUniqueImportReference(tasksByNo.get(taskNo) ?? [], `工序任务“${taskNo}”`)
+          if (!task.tenantId) throw new Error('工序任务缺少所属租户，请刷新后重试')
+          const tenantCenters = centersByTenant.get(task.tenantId) ?? []
+          const exactCodes = tenantCenters.filter((item) => item.code === centerCode)
+          center = requireUniqueImportReference(
+            exactCodes.length
+              ? exactCodes
+              : tenantCenters.filter((item) => item.name === centerCode),
+            `任务“${taskNo}”所属租户的工作中心“${centerCode}”`
+          )
+        } catch (error) {
+          failures.push(
+            `第 ${index + 2} 行${getFriendlySupabaseErrorMessage(error, '任务或工作中心引用无效，请核对编号')}`
+          )
           continue
         }
         if (quantity > availableQuantity(task)) {
@@ -1005,6 +1069,7 @@
           task.workOrder?.plannedEndDate ||
           startDate
         try {
+          if (!isCurrent()) return
           await confirmOperationTaskSchedule(
             {
               id: task.id,
@@ -1014,13 +1079,18 @@
               plannedEndDate: endDate,
               shiftScheduleId: filters.shiftScheduleId || null
             },
-            { showMessage: false }
+            { showMessage: false, showErrorMessage: false }
           )
+          if (!isCurrent()) return
           successCount += 1
-        } catch {
-          failures.push(`第 ${index + 2} 行排产失败`)
+        } catch (error) {
+          if (!isCurrent()) return
+          failures.push(
+            `第 ${index + 2} 行任务“${taskNo}”${getFriendlySupabaseErrorMessage(error, '排产失败，请核对任务状态后重试')}`
+          )
         }
       }
+      if (!isCurrent()) return
       if (failures.length)
         ElMessage.warning(
           `导入完成：成功 ${successCount} 条，失败 ${failures.length} 条。${failures[0]}`
@@ -1028,7 +1098,10 @@
       else ElMessage.success(`已导入并确认 ${successCount} 条排产任务`)
       await loadWorkspace()
     } finally {
-      state.importing = false
+      if (version === scheduleImportVersion) {
+        activeScheduleOperation.value = null
+        state.importing = false
+      }
     }
   }
   function handleImportError(): void {
@@ -1288,6 +1361,31 @@
 
       &__workspace {
         grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+      }
+    }
+
+    @media (width <= 920px) {
+      height: auto;
+
+      &__workspace {
+        flex: none;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      &__task-card {
+        height: clamp(400px, 60dvh, 560px);
+
+        :deep(.art-section-card__identity) {
+          flex-basis: 100%;
+        }
+
+        :deep(.art-section-card__actions) {
+          flex-wrap: wrap;
+        }
+      }
+
+      &__overview {
+        height: clamp(360px, 55dvh, 520px);
       }
     }
   }
