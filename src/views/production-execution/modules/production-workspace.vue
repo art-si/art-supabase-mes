@@ -532,7 +532,7 @@
   import { createDateTimeFormatter } from '@/utils/ui/format'
   import { useDictionaryOptions } from '@/hooks/core/useDictionaryOptions'
   import dayjs from 'dayjs'
-  import { computed, nextTick, onMounted, ref, watch } from 'vue'
+  import { computed, nextTick, onMounted, ref, watch, type Ref } from 'vue'
   import { useMediaQuery } from '@vueuse/core'
   import { ElMessage, type FormRules } from 'element-plus'
   import type { ColumnOption } from '@/types'
@@ -913,6 +913,18 @@
   })
 
   let taskVersion = 0
+  let taskSelectionVersion = 0
+  function setSelectedTask(task: MesExecutionTask | null) {
+    const previous = selectedTask.value
+    if (previous?.id !== task?.id || previous?.tenantId !== task?.tenantId) {
+      ++taskSelectionVersion
+      attendance.value = []
+      feedRows.value = []
+      esopDocuments.value = []
+    }
+    selectedTask.value = task
+  }
+
   async function loadTasks() {
     const version = ++taskVersion
     loading.value = true
@@ -947,8 +959,9 @@
       }))
       total.value = result.total
       hasLoaded.value = true
-      selectedTask.value =
+      setSelectedTask(
         tasks.value.find((item) => item.id === selectedTask.value?.id) || tasks.value[0] || null
+      )
       void loadAttendance()
     } catch {
       if (version === taskVersion) error.value = '任务加载失败，请重试'
@@ -956,58 +969,64 @@
       if (version === taskVersion) loading.value = false
     }
   }
-  async function loadAttendance() {
-    if (!selectedTask.value) {
-      attendance.value = []
-      return
-    }
-    try {
-      attendance.value = await fetchExecutionAttendance(selectedTask.value.id)
-    } catch {
-      attendance.value = []
-      ElMessage.error('出勤记录加载失败')
+  function createTaskDetailLoader<T>(
+    rows: Ref<T[]>,
+    fetchRows: (task: MesExecutionTask) => Promise<T[]>,
+    errorMessage: string
+  ) {
+    let requestVersion = 0
+    return async () => {
+      const request = ++requestVersion
+      const selection = taskSelectionVersion
+      const task = selectedTask.value
+      if (!task) {
+        rows.value = []
+        return
+      }
+      const isCurrent = () => request === requestVersion && selection === taskSelectionVersion
+      try {
+        const result = await fetchRows(task)
+        if (isCurrent()) rows.value = result
+      } catch {
+        if (!isCurrent()) return
+        rows.value = []
+        ElMessage.error(errorMessage)
+      }
     }
   }
-  async function loadFeedRows() {
-    if (!selectedTask.value) {
-      feedRows.value = []
-      return
-    }
-    try {
-      feedRows.value = (
+  const loadAttendance = createTaskDetailLoader(
+    attendance,
+    (task) => fetchExecutionAttendance(task.id),
+    '出勤记录加载失败'
+  )
+  const loadFeedRows = createTaskDetailLoader(
+    feedRows,
+    async (task) =>
+      (
         await fetchExecutionEvents({
           current: 1,
           size: 100,
-          taskId: selectedTask.value.id,
+          taskId: task.id,
           kinds: ['material_feed']
         })
-      ).data
-    } catch {
-      feedRows.value = []
-      ElMessage.error('投料记录加载失败')
-    }
-  }
-  async function loadEsopDocuments() {
-    const task = selectedTask.value
-    if (!task) {
-      esopDocuments.value = []
-      return
-    }
-    const ids = (currentStep.value?.sopDocuments || [])
-      .filter((item) => item.type === 'esop')
-      .map((item) => item.id)
-    try {
-      esopDocuments.value = await fetchExecutionEsopDocuments(ids, task.tenantId)
-    } catch {
-      esopDocuments.value = []
-      ElMessage.error('ESOP 文档加载失败')
-    }
-  }
+      ).data,
+    '投料记录加载失败'
+  )
+  const loadEsopDocuments = createTaskDetailLoader(
+    esopDocuments,
+    (task) => {
+      const ids = (routeStepFor(task)?.sopDocuments ?? [])
+        .filter((item) => item.type === 'esop')
+        .map((item) => item.id)
+      return fetchExecutionEsopDocuments(ids, task.tenantId)
+    },
+    'ESOP 文档加载失败'
+  )
   async function reload() {
     await Promise.all([loadTasks(), loadAttendance()])
   }
   function selectTask(item: MesExecutionTask) {
-    selectedTask.value = item
+    setSelectedTask(item)
     void Promise.all([loadAttendance(), loadFeedRows(), loadEsopDocuments()])
   }
   async function viewWorkOrder(task: MesExecutionTask): Promise<void> {

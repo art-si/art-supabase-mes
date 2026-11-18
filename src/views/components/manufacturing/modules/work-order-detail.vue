@@ -1,6 +1,6 @@
 <template>
   <div class="work-order-detail">
-    <ElTabs v-model="activeTab">
+    <ElTabs v-model="activeTab" class="art-card-xs art-overlay-tab-card">
       <ElTabPane
         v-for="section in sections"
         :key="section.key"

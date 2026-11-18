@@ -1,0 +1,1 @@
+function e(e){let t=e?.currentTarget;if(e?.detail===0&&t instanceof HTMLButtonElement&&t.ownerDocument.activeElement===t)return t}function t(e){let{ownerDocument:t}=e;e.isConnected&&!e.disabled&&t.hasFocus()&&t.activeElement===t.body&&e.focus({preventScroll:!0})}export{t as n,e as t};

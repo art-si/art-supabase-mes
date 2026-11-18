@@ -253,115 +253,39 @@
               statusLabel(detailReport.status)
             }}</ElTag></div
           >
-          <ElTabs v-model="detailTab" class="min-w-0">
+          <ElTabs v-model="detailTab" class="min-w-0 art-card-xs art-overlay-tab-card">
             <ElTabPane name="task" label="生产任务" :lazy="false">
               <ArtSectionTitle>生产任务</ArtSectionTitle>
-              <ElDescriptions :column="detailColumns" border>
-                <ElDescriptionsItem label="开始加工">{{
-                  formatTime(detailReport.startedAt)
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="报工时间">{{
-                  formatTime(detailReport.reportedAt)
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="工作中心">{{
-                  detailReport.workCenter?.name || '—'
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="实际机台">{{
-                  detailReport.equipmentId
-                    ? `${detailReport.task?.equipmentCodeSnapshot || '—'} · ${detailReport.task?.equipmentNameSnapshot || '—'}`
-                    : '未分配机台'
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="班次">{{
-                  detailReport.shiftName || '—'
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="产品"
-                  >{{ detailReport.task?.workOrder?.materialCodeSnapshot }} ·
-                  {{ detailReport.task?.workOrder?.materialNameSnapshot }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="规格">{{
-                  detailReport.task?.workOrder?.specificationSnapshot || '—'
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="项目">{{
-                  detailReport.task?.workOrder?.projectNameSnapshot || '—'
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="图号">{{
-                  detailReport.task?.workOrder?.drawingNoSnapshot || '—'
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="工序序列 / 类型"
-                  >{{ detailReport.task?.sequenceNo ?? '—' }} /
-                  {{ detailReport.task?.sequenceType || '—' }}</ElDescriptionsItem
-                >
-                <ElDescriptionsItem label="工单数量">{{
-                  detailReport.task?.workOrder?.orderQuantity ?? '—'
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="要求完工日期">{{
-                  detailReport.task?.requiredCompletionDate || '—'
-                }}</ElDescriptionsItem>
-              </ElDescriptions>
+              <ArtDescriptions
+                :data="detailReport"
+                :items="taskDetailItems"
+                :columns="2"
+                :label-width="120"
+                :mobile-columns="detailColumns"
+                empty-text="—"
+              />
             </ElTabPane>
             <ElTabPane name="quantity" label="产量与工时" :lazy="false">
               <ArtSectionTitle>产量与工时</ArtSectionTitle>
-              <ElDescriptions :column="detailColumns" border>
-                <ElDescriptionsItem label="标准时产能">{{
-                  formatCapacity(detailReport)
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="计划数量">{{
-                  detailReport.task?.plannedQuantity ?? '—'
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="良品数量">{{
-                  detailReport.goodQuantity
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="加工不良">{{
-                  detailReport.processBadQuantity
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="来料不良">{{
-                  detailReport.materialBadQuantity
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="机器用时"
-                  >{{ machineHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
-                ><ElDescriptionsItem label="人工用时"
-                  >{{ laborHours(detailReport).toFixed(2) }} h</ElDescriptionsItem
-                >
-                <ElDescriptionsItem label="机器计数">待接入设备采集</ElDescriptionsItem>
-                <ElDescriptionsItem label="灯态 / OEE">待接入设备采集</ElDescriptionsItem>
-                <ElDescriptionsItem label="良品率">{{ goodRate(detailReport) }}%</ElDescriptionsItem
-                ><ElDescriptionsItem label="计划达成率"
-                  >{{ planRate(detailReport) }}%</ElDescriptionsItem
-                >
-              </ElDescriptions>
+              <ArtDescriptions
+                :data="detailReport"
+                :items="quantityDetailItems"
+                :columns="2"
+                :label-width="120"
+                :mobile-columns="detailColumns"
+                empty-text="—"
+              />
             </ElTabPane>
             <ElTabPane name="review" label="审批与附件" :lazy="false">
               <ArtSectionTitle>补偿与审批</ArtSectionTitle>
-              <ElDescriptions :column="detailColumns" border>
-                <ElDescriptionsItem label="补偿工时 / 原因" :span="detailColumns"
-                  >{{ detailReport.compensationHours }} h ·
-                  {{ detailReport.compensationReason || '—' }}</ElDescriptionsItem
-                >
-                <ElDescriptionsItem label="奖惩工时 / 原因" :span="detailColumns"
-                  >{{ detailReport.rewardPenaltyHours }} h ·
-                  {{ detailReport.rewardPenaltyReason || '—' }}</ElDescriptionsItem
-                >
-                <ElDescriptionsItem label="报工人">{{
-                  detailReport.reporterName || '—'
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="操作人员">{{
-                  operatorNames(detailReport.operatorPersonIds)
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="审批人">{{
-                  detailReport.reviewerName || '—'
-                }}</ElDescriptionsItem
-                ><ElDescriptionsItem label="审批时间">{{
-                  formatTime(detailReport.reviewedAt)
-                }}</ElDescriptionsItem>
-                <ElDescriptionsItem
-                  v-if="detailReport.rejectReason"
-                  label="驳回原因"
-                  :span="detailColumns"
-                  >{{ detailReport.rejectReason }}</ElDescriptionsItem
-                >
-                <ElDescriptionsItem label="备注" :span="detailColumns">{{
-                  detailReport.remark || '—'
-                }}</ElDescriptionsItem> </ElDescriptions
-              ><ArtSectionTitle v-if="detailReport.defects?.length">不良原因</ArtSectionTitle
+              <ArtDescriptions
+                :data="detailReport"
+                :items="reviewDetailItems"
+                :columns="2"
+                :label-width="120"
+                :mobile-columns="detailColumns"
+                empty-text="—"
+              /><ArtSectionTitle v-if="detailReport.defects?.length">不良原因</ArtSectionTitle
               ><div
                 v-for="defect in detailReport.defects"
                 :key="defect.id"
@@ -406,6 +330,8 @@
   import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
+  import ArtDescriptions from '@/components/core/base/art-descriptions/index.vue'
+  import type { ArtDescriptionItem } from '@/components/core/base/art-descriptions/types'
   import ArtDrawer from '@/components/core/drawers/art-drawer/index.vue'
   import type { ArtDrawerExpose } from '@/components/core/drawers/art-drawer/types'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
@@ -598,6 +524,79 @@
       ? '—'
       : `${value.toFixed(2)} ${row.task?.workOrder?.unitSnapshot || '单位'}/h`
   }
+
+  const taskDetailItems: ArtDescriptionItem<MesProductionReport>[] = [
+    { key: 'startedAt', label: '开始加工', value: (row) => formatTime(row.startedAt) },
+    { key: 'reportedAt', label: '报工时间', value: (row) => formatTime(row.reportedAt) },
+    { key: 'workCenter', label: '工作中心', field: 'workCenter.name' },
+    {
+      key: 'equipment',
+      label: '实际机台',
+      value: (row) =>
+        row.equipmentId
+          ? `${row.task?.equipmentCodeSnapshot || '—'} · ${row.task?.equipmentNameSnapshot || '—'}`
+          : '未分配机台'
+    },
+    { key: 'shiftName', label: '班次', field: 'shiftName' },
+    {
+      key: 'product',
+      label: '产品',
+      value: (row) =>
+        `${row.task?.workOrder?.materialCodeSnapshot ?? ''} · ${row.task?.workOrder?.materialNameSnapshot ?? ''}`
+    },
+    { key: 'specification', label: '规格', field: 'task.workOrder.specificationSnapshot' },
+    { key: 'project', label: '项目', field: 'task.workOrder.projectNameSnapshot' },
+    { key: 'drawing', label: '图号', field: 'task.workOrder.drawingNoSnapshot' },
+    {
+      key: 'sequence',
+      label: '工序序列 / 类型',
+      value: (row) => `${row.task?.sequenceNo ?? '—'} / ${row.task?.sequenceType || '—'}`
+    },
+    { key: 'orderQuantity', label: '工单数量', field: 'task.workOrder.orderQuantity' },
+    { key: 'requiredCompletionDate', label: '要求完工日期', field: 'task.requiredCompletionDate' }
+  ]
+  const quantityDetailItems: ArtDescriptionItem<MesProductionReport>[] = [
+    { key: 'capacity', label: '标准时产能', value: formatCapacity },
+    { key: 'plannedQuantity', label: '计划数量', field: 'task.plannedQuantity' },
+    { key: 'goodQuantity', label: '良品数量', field: 'goodQuantity' },
+    { key: 'processBadQuantity', label: '加工不良', field: 'processBadQuantity' },
+    { key: 'materialBadQuantity', label: '来料不良', field: 'materialBadQuantity' },
+    { key: 'machineHours', label: '机器用时', value: (row) => `${machineHours(row).toFixed(2)} h` },
+    { key: 'laborHours', label: '人工用时', value: (row) => `${laborHours(row).toFixed(2)} h` },
+    { key: 'machineCount', label: '机器计数', value: '待接入设备采集' },
+    { key: 'oee', label: '灯态 / OEE', value: '待接入设备采集' },
+    { key: 'goodRate', label: '良品率', value: (row) => `${goodRate(row)}%` },
+    { key: 'planRate', label: '计划达成率', value: (row) => `${planRate(row)}%` }
+  ]
+  const reviewDetailItems = computed<ArtDescriptionItem<MesProductionReport>[]>(() => [
+    {
+      key: 'compensation',
+      label: '补偿工时 / 原因',
+      span: detailColumns.value,
+      value: (row) => `${row.compensationHours} h · ${row.compensationReason || '—'}`
+    },
+    {
+      key: 'rewardPenalty',
+      label: '奖惩工时 / 原因',
+      span: detailColumns.value,
+      value: (row) => `${row.rewardPenaltyHours} h · ${row.rewardPenaltyReason || '—'}`
+    },
+    { key: 'reporterName', label: '报工人', field: 'reporterName' },
+    { key: 'operators', label: '操作人员', value: (row) => operatorNames(row.operatorPersonIds) },
+    { key: 'reviewerName', label: '审批人', field: 'reviewerName' },
+    { key: 'reviewedAt', label: '审批时间', value: (row) => formatTime(row.reviewedAt) },
+    ...(detailReport.value?.rejectReason
+      ? [
+          {
+            key: 'rejectReason',
+            label: '驳回原因',
+            field: 'rejectReason',
+            span: detailColumns.value
+          }
+        ]
+      : []),
+    { key: 'remark', label: '备注', field: 'remark', span: detailColumns.value }
+  ])
 
   let loadVersion = 0
   async function loadRows() {

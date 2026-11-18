@@ -2,41 +2,27 @@
   <DefineEventOverview>
     <template v-if="detailEvent">
       <ArtSectionTitle v-if="!detailUsesTabs">记录概况</ArtSectionTitle>
-      <ElDescriptions :column="detailColumns" border>
-        <ElDescriptionsItem label="发生时间">{{
-          formatDateTime(detailEvent.occurredAt)
-        }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="发起人">{{ detailEvent.actorName || '—' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="处理人">{{
-          detailEvent.handler?.name || '—'
-        }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="响应时间">{{
-          formatDateTime(detailEvent.respondedAt)
-        }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="结束时间">{{
-          formatDateTime(detailEvent.completedAt)
-        }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="数量">{{ detailEvent.quantity }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="工作中心">{{
-          detailEvent.workCenter?.name || '—'
-        }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="备注" :span="detailColumns">{{
-          detailEvent.remark || '—'
-        }}</ElDescriptionsItem>
-      </ElDescriptions>
+      <ArtDescriptions
+        :data="detailEvent"
+        :items="overviewItems"
+        :columns="2"
+        :mobile-columns="detailColumns"
+        :label-width="120"
+        empty-text=""
+      />
     </template>
   </DefineEventOverview>
   <DefineEventDetails>
     <template v-if="detailEvent">
       <ArtSectionTitle v-if="!detailUsesTabs">业务明细</ArtSectionTitle>
-      <ElDescriptions :column="detailColumns" border>
-        <ElDescriptionsItem
-          v-for="[key, value] in detailEntries(detailEvent.details)"
-          :key="key"
-          :label="detailLabel(key)"
-          >{{ value }}</ElDescriptionsItem
-        >
-      </ElDescriptions>
+      <ArtDescriptions
+        :data="detailEvent"
+        :items="detailItems"
+        :columns="2"
+        :mobile-columns="detailColumns"
+        :label-width="120"
+        empty-text=""
+      />
       <ArtSectionTitle v-if="detailEvent.media?.length">现场附件</ArtSectionTitle>
       <div v-if="detailEvent.media?.length" class="execution-event-page__media">
         <a
@@ -93,7 +79,13 @@
           </aside>
         </template>
 
-        <div class="execution-event-page__main">
+        <div
+          class="execution-event-page__main"
+          :class="{
+            'art-card-xs art-overlay-tab-card pt-[var(--art-overlay-tab-card-gutter)]':
+              embedded && mode === 'equipment'
+          }"
+        >
           <div v-if="embedded" class="execution-event-page__embedded-heading">
             <div>
               <h3>{{ title }}</h3>
@@ -458,7 +450,11 @@
               {{ statusLabel(detailEvent.status) }}
             </ElTag>
           </div>
-          <ElTabs v-if="detailUsesTabs" v-model="activeDetailTab" class="min-w-0">
+          <ElTabs
+            v-if="detailUsesTabs"
+            v-model="activeDetailTab"
+            class="min-w-0 art-card-xs art-overlay-tab-card"
+          >
             <ElTabPane name="overview" label="记录概况" :lazy="false">
               <div class="execution-event-page__detail"><EventOverview /></div>
             </ElTabPane>
@@ -504,6 +500,8 @@
   import BusinessTableIdentityCell from '@/components/business/business-table-identity-cell/index.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import ArtSectionTitle from '@/components/core/surfaces/art-section-title/index.vue'
+  import ArtDescriptions from '@/components/core/base/art-descriptions/index.vue'
+  import type { ArtDescriptionItem } from '@/components/core/base/art-descriptions/types'
   import ProductionWorkCenterNavigator from '@/components/business/production-work-center-navigator/index.vue'
   import BusinessWorkspaceHeader from '@/components/business/business-workspace-header/index.vue'
   import BusinessTableWorkspaceActions from '@/components/business/business-table-workspace-actions/index.vue'
@@ -839,9 +837,7 @@
   const formUsesTabs = computed(
     () => props.mode === 'inspection' || (props.mode === 'mold' && formMode.value === 'update')
   )
-  const detailUsesTabs = computed(() =>
-    Boolean(detailEvent.value && detailEntries(detailEvent.value.details).length >= 6)
-  )
+  const detailUsesTabs = computed(() => detailItems.value.length >= 6)
   const editingId = ref<string | null>(null)
   const actionEvent = ref<MesExecutionEvent | null>(null)
   const actionType = ref<'accept' | 'close'>('accept')
@@ -1502,7 +1498,6 @@
     unloadLocation: '下模库位',
     unloadedAt: '下模时间'
   }
-  const detailLabel = (key: string) => detailLabels[key]
   const detailValue = (key: string, value: unknown): string => {
     if (value == null || value === '') return '—'
     if (key === 'judgment') {
@@ -1517,10 +1512,21 @@
     if (Array.isArray(value)) return value.map(String).join('、') || '—'
     return typeof value === 'object' ? '—' : String(value)
   }
-  const detailEntries = (details: Record<string, unknown>): Array<[string, string]> =>
-    Object.entries(details)
+  const overviewItems = computed<ArtDescriptionItem<MesExecutionEvent>[]>(() => [
+    { key: 'occurredAt', label: '发生时间', value: (row) => formatDateTime(row.occurredAt) },
+    { key: 'actorName', label: '发起人', value: (row) => row.actorName || '—' },
+    { key: 'handler', label: '处理人', value: (row) => row.handler?.name || '—' },
+    { key: 'respondedAt', label: '响应时间', value: (row) => formatDateTime(row.respondedAt) },
+    { key: 'completedAt', label: '结束时间', value: (row) => formatDateTime(row.completedAt) },
+    { key: 'quantity', label: '数量', field: 'quantity' },
+    { key: 'workCenter', label: '工作中心', value: (row) => row.workCenter?.name || '—' },
+    { key: 'remark', label: '备注', value: (row) => row.remark || '—', span: detailColumns.value }
+  ])
+  const detailItems = computed<ArtDescriptionItem<MesExecutionEvent>[]>(() =>
+    Object.entries(detailEvent.value?.details ?? {})
       .filter(([key]) => Object.prototype.hasOwnProperty.call(detailLabels, key))
-      .map(([key, value]) => [key, detailValue(key, value)])
+      .map(([key, value]) => ({ key, label: detailLabels[key], value: detailValue(key, value) }))
+  )
 
   let rowVersion = 0
   async function loadRows() {
